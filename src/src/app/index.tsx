@@ -1,98 +1,299 @@
-import * as Device from 'expo-device';
-import { Platform, StyleSheet } from 'react-native';
+// 便签列表主界面：搜索 + 分类过滤 Chips + 双列瀑布流卡片 + FAB + 下拉刷新同步
+import { useCallback, useMemo, useState } from 'react';
+import {
+  Pressable,
+  RefreshControl,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+  useColorScheme,
+} from 'react-native';
+import { useRouter } from 'expo-router';
+import { FlashList } from '@shopify/flash-list';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { AnimatedIcon } from '@/components/animated-icon';
-import { HintRow } from '@/components/hint-row';
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
-import { WebBadge } from '@/components/web-badge';
-import { BottomTabInset, MaxContentWidth, Spacing } from '@/constants/theme';
+import { NoteCard } from '../components/NoteCard';
+import { AppMenu, type MenuAction } from '../components/AppMenu';
+import { SyncDot } from '../components/SyncDot';
+import { DARK_SHELL, LIGHT_SHELL, cardShadow, type ShellPalette } from '../constants/theme';
+import type { Note } from '../data/note';
+import { filterNotes } from '../services/search';
+import { notesStore } from '../stores/notesStore';
+import { syncStore } from '../stores/syncStore';
 
-function getDevMenuHint() {
-  if (Platform.OS === 'web') {
-    return <ThemedText type="small">use browser devtools</ThemedText>;
-  }
-  if (Device.isDevice) {
-    return (
-      <ThemedText type="small">
-        shake device or press <ThemedText type="code">m</ThemedText> in terminal
-      </ThemedText>
-    );
-  }
-  const shortcut = Platform.OS === 'android' ? 'cmd+m (or ctrl+m)' : 'cmd+d';
+type FilterMode = 'all' | 'pinned';
+
+export default function NotesListScreen() {
+  const router = useRouter();
+  const systemScheme = useColorScheme();
+  const p = systemScheme === 'dark' ? DARK_SHELL : LIGHT_SHELL;
+  const styles = makeStyles(p);
+
+  const notes = notesStore((s) => s.notes);
+  const refreshAsync = notesStore((s) => s.refreshAsync);
+  const archiveAsync = notesStore((s) => s.archiveAsync);
+  const togglePinAsync = notesStore((s) => s.togglePinAsync);
+  const syncStatus = syncStore((s) => s.status);
+
+  const [query, setQuery] = useState('');
+  const [filter, setFilter] = useState<FilterMode>('all');
+  const [menuNote, setMenuNote] = useState<Note | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
+
+  const visibleNotes = useMemo(() => {
+    const active = notes.filter((n) => !n.isDeleted);
+    const filtered = filter === 'pinned' ? active.filter((n) => n.isPinnedInList) : active;
+    const sorted = [...filtered].sort((a, b) => {
+      if (a.isPinnedInList !== b.isPinnedInList) return a.isPinnedInList ? -1 : 1;
+      return a.updatedAt >= b.updatedAt ? -1 : 1;
+    });
+    return filterNotes(sorted, query);
+  }, [notes, filter, query]);
+
+  const allCount = useMemo(() => notes.filter((n) => !n.isDeleted).length, [notes]);
+  const pinnedCount = useMemo(() => notes.filter((n) => !n.isDeleted && n.isPinnedInList).length, [notes]);
+
+  const manualRefresh = useCallback(async () => {
+    setRefreshing(true);
+    const started = syncStore.getState().runNow();
+    await Promise.race([started, new Promise((r) => setTimeout(r, 1200))]);
+    await refreshAsync();
+    setRefreshing(false);
+  }, [refreshAsync]);
+
+  const menuActions: MenuAction[] = useMemo(() => {
+    if (!menuNote) return [];
+    return [
+      {
+        key: 'pin',
+        label: menuNote.isPinnedInList ? '取消置顶' : '置顶',
+        onPress: () => void togglePinAsync(menuNote.id),
+      },
+      {
+        key: 'archive',
+        label: '归档',
+        destructive: true,
+        onPress: () => void archiveAsync(menuNote.id),
+      },
+    ];
+  }, [menuNote, togglePinAsync, archiveAsync]);
+
   return (
-    <ThemedText type="small">
-      press <ThemedText type="code">{shortcut}</ThemedText>
-    </ThemedText>
+    <SafeAreaView style={styles.safe} edges={['top']}>
+      {/* 顶部导航栏 */}
+      <View style={styles.header}>
+        <View style={styles.headerLeft}>
+          <View style={styles.logo}>
+            <Text style={styles.logoText}>S</Text>
+          </View>
+          <Text style={styles.headerTitle}>便签</Text>
+        </View>
+        <View style={styles.headerActions}>
+          <SyncDot status={syncStatus} />
+          <Pressable hitSlop={8} onPress={() => router.push('/archive')}>
+            <Text style={styles.headerIcon}>🗄️</Text>
+          </Pressable>
+          <Pressable hitSlop={8} onPress={() => router.push('/settings')}>
+            <Text style={styles.headerIcon}>⚙️</Text>
+          </Pressable>
+        </View>
+      </View>
+
+      {/* 快捷搜索框 */}
+      <View style={styles.searchWrap}>
+        <TextInput
+          style={styles.searchInput}
+          placeholder="搜索便签内容..."
+          placeholderTextColor={p.secondaryText}
+          value={query}
+          onChangeText={setQuery}
+          returnKeyType="search"
+        />
+      </View>
+
+      {/* 分类过滤 Chips */}
+      <View style={styles.chipsRow}>
+        <Chip label={`全部 (${allCount})`} active={filter === 'all'} onPress={() => setFilter('all')} p={p} />
+        <Chip label={`已置顶 (${pinnedCount})`} active={filter === 'pinned'} onPress={() => setFilter('pinned')} p={p} />
+      </View>
+
+      {/* 便签卡片流 */}
+      <FlashList
+        data={visibleNotes}
+        masonry
+        numColumns={2}
+        contentContainerStyle={styles.listContent}
+        keyExtractor={(item) => item.id}
+        renderItem={({ item }) => (
+          <NoteCard
+            note={item}
+            query={query}
+            onPress={(note) => router.push(`/note/${note.id}`)}
+            onMenu={setMenuNote}
+            onSwipeArchive={(note) => void archiveAsync(note.id)}
+          />
+        )}
+        ListEmptyComponent={
+          <View style={styles.empty}>
+            <Text style={styles.emptyIcon}>🗒️</Text>
+            <Text style={styles.emptyText}>{query ? '没有匹配的便签' : '还没有便签，点击右下角 + 新建'}</Text>
+          </View>
+        }
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={() => void manualRefresh()} tintColor={p.secondaryText} />
+        }
+      />
+
+      {/* 浮动操作按钮 */}
+      <Pressable
+        style={({ pressed }) => [styles.fab, cardShadow(6), pressed && styles.fabPressed]}
+        onPress={() => router.push('/note/new')}
+      >
+        <Text style={styles.fabText}>＋</Text>
+      </Pressable>
+
+      <AppMenu
+        visible={menuNote !== null}
+        onClose={() => setMenuNote(null)}
+        actions={menuActions}
+        title={menuNote ? '便签操作' : undefined}
+      />
+    </SafeAreaView>
   );
 }
 
-export default function HomeScreen() {
+function Chip({
+  label,
+  active,
+  onPress,
+  p,
+}: {
+  label: string;
+  active: boolean;
+  onPress: () => void;
+  p: ShellPalette;
+}) {
   return (
-    <ThemedView style={styles.container}>
-      <SafeAreaView style={styles.safeArea}>
-        <ThemedView style={styles.heroSection}>
-          <AnimatedIcon />
-          <ThemedText type="title" style={styles.title}>
-            Welcome to&nbsp;Expo
-          </ThemedText>
-        </ThemedView>
-
-        <ThemedText type="code" style={styles.code}>
-          get started
-        </ThemedText>
-
-        <ThemedView type="backgroundElement" style={styles.stepContainer}>
-          <HintRow
-            title="Try editing"
-            hint={<ThemedText type="code">src/app/index.tsx</ThemedText>}
-          />
-          <HintRow title="Dev tools" hint={getDevMenuHint()} />
-          <HintRow
-            title="Fresh start"
-            hint={<ThemedText type="code">npm run reset-project</ThemedText>}
-          />
-        </ThemedView>
-
-        {Platform.OS === 'web' && <WebBadge />}
-      </SafeAreaView>
-    </ThemedView>
+    <Pressable
+      onPress={onPress}
+      style={[
+        chipStyles.chip,
+        { backgroundColor: active ? p.accent : p.surface, borderColor: active ? p.accent : p.border },
+      ]}
+    >
+      <Text style={{ color: active ? '#FFFFFF' : p.text, fontSize: 13 }}>{label}</Text>
+    </Pressable>
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    justifyContent: 'center',
-    flexDirection: 'row',
-  },
-  safeArea: {
-    flex: 1,
-    paddingHorizontal: Spacing.four,
-    alignItems: 'center',
-    gap: Spacing.three,
-    paddingBottom: BottomTabInset + Spacing.three,
-    maxWidth: MaxContentWidth,
-  },
-  heroSection: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    flex: 1,
-    paddingHorizontal: Spacing.four,
-    gap: Spacing.four,
-  },
-  title: {
-    textAlign: 'center',
-  },
-  code: {
-    textTransform: 'uppercase',
-  },
-  stepContainer: {
-    gap: Spacing.three,
-    alignSelf: 'stretch',
-    paddingHorizontal: Spacing.three,
-    paddingVertical: Spacing.four,
-    borderRadius: Spacing.four,
+const chipStyles = StyleSheet.create({
+  chip: {
+    borderRadius: 16,
+    borderWidth: StyleSheet.hairlineWidth,
+    paddingHorizontal: 14,
+    paddingVertical: 6,
+    marginRight: 8,
   },
 });
+
+const makeStyles = (p: ShellPalette) =>
+  StyleSheet.create({
+    safe: {
+      flex: 1,
+      backgroundColor: p.background,
+    },
+    header: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      paddingHorizontal: 16,
+      paddingVertical: 10,
+    },
+    headerLeft: {
+      flexDirection: 'row',
+      alignItems: 'center',
+    },
+    logo: {
+      width: 28,
+      height: 28,
+      borderRadius: 7,
+      backgroundColor: '#FFEE9D',
+      alignItems: 'center',
+      justifyContent: 'center',
+      marginRight: 8,
+    },
+    logoText: {
+      color: '#6C6546',
+      fontWeight: '900',
+      fontSize: 15,
+    },
+    headerTitle: {
+      color: p.text,
+      fontSize: 20,
+      fontWeight: '700',
+    },
+    headerActions: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 14,
+    },
+    headerIcon: {
+      fontSize: 20,
+    },
+    searchWrap: {
+      paddingHorizontal: 16,
+      paddingBottom: 8,
+    },
+    searchInput: {
+      backgroundColor: p.surface,
+      borderColor: p.border,
+      borderWidth: StyleSheet.hairlineWidth,
+      borderRadius: 12,
+      paddingHorizontal: 14,
+      paddingVertical: 9,
+      color: p.text,
+      fontSize: 15,
+    },
+    chipsRow: {
+      flexDirection: 'row',
+      paddingHorizontal: 16,
+      paddingBottom: 10,
+    },
+    listContent: {
+      paddingHorizontal: 16,
+      paddingBottom: 96,
+    },
+    empty: {
+      alignItems: 'center',
+      paddingTop: 80,
+    },
+    emptyIcon: {
+      fontSize: 44,
+      marginBottom: 12,
+    },
+    emptyText: {
+      color: p.secondaryText,
+      fontSize: 14,
+    },
+    fab: {
+      position: 'absolute',
+      right: 20,
+      bottom: 28,
+      width: 56,
+      height: 56,
+      borderRadius: 16,
+      backgroundColor: p.accent,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    fabPressed: {
+      opacity: 0.85,
+    },
+    fabText: {
+      color: '#FFFFFF',
+      fontSize: 28,
+      fontWeight: '600',
+      marginTop: -2,
+    },
+  });
