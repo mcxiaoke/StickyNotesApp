@@ -6,7 +6,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import Constants from 'expo-constants';
 import * as Clipboard from 'expo-clipboard';
 
-import { FONT_SIZES, FONT_SIZE_LABELS, settingsStore, type FontSize, type ThemeMode } from '../../stores/settingsStore';
+import { FONT_SIZES, FONT_SIZE_LABELS, AUTO_LOCK_OPTIONS, settingsStore, type FontSize, type ThemeMode } from '../../stores/settingsStore';
 import { NOTE_COLOR_THEMES } from '../../data/theme';
 import type { ShellPalette } from '../../constants/theme';
 import { useShellPalette } from '../../hooks/use-shell';
@@ -42,6 +42,7 @@ export default function SettingsScreen() {
   const pinEnabled = lockStore((s) => s.pinEnabled);
   const biometricEnabled = lockStore((s) => s.biometricEnabled);
   const biometricAvailable = lockStore((s) => s.biometricAvailable);
+  const autoLockMinutes = settingsStore((s) => s.autoLockMinutes);
   const [pinModal, setPinModal] = useState<PinModalMode | null>(null);
 
   const onPinModalSubmit = async (values: Record<string, string>): Promise<string | null> => {
@@ -204,6 +205,25 @@ export default function SettingsScreen() {
                 ) : (
                   <Text style={styles.aboutLabel}>设备不支持或未录入</Text>
                 )}
+              </View>
+              <Text style={styles.rowLabel}>切后台后要求解锁</Text>
+              <View style={styles.optionRow}>
+                {AUTO_LOCK_OPTIONS.map((opt) => (
+                  <Pressable
+                    key={opt.value}
+                    onPress={() => settingsStore.getState().setAutoLockMinutes(opt.value)}
+                    style={[styles.option, autoLockMinutes === opt.value && styles.optionActive]}
+                  >
+                    <Text
+                      style={[
+                        styles.optionText,
+                        autoLockMinutes === opt.value && styles.optionTextActive,
+                      ]}
+                    >
+                      {opt.label}
+                    </Text>
+                  </Pressable>
+                ))}
               </View>
               <Text style={styles.aboutNote}>启用后每次打开应用都需解锁；清除 PIN 需验证当前 PIN。</Text>
               <View style={styles.logButtonRow}>

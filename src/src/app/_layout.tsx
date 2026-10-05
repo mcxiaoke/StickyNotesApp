@@ -53,7 +53,12 @@ export default function RootLayout() {
       }, 2000);
     };
     const sub = AppState.addEventListener('change', (state) => {
-      if (state === 'active') onForeground();
+      if (state === 'active') {
+        lockStore.getState().maybeRelockOnForeground();
+        onForeground();
+      } else if (state === 'background') {
+        lockStore.getState().markBackgrounded();
+      }
     });
     return () => {
       if (fgTimer) clearTimeout(fgTimer);

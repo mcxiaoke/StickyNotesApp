@@ -12,6 +12,7 @@ import {
   verifyPinAsync,
 } from '../services/pin';
 import { logger } from '../services/logger';
+import { settingsStore, AUTO_LOCK_NEVER } from './settingsStore';
 
 interface LockState {
   pinEnabled: boolean;
@@ -20,12 +21,17 @@ interface LockState {
   /** 水合完成前 UI 应保持空屏，避免 PIN 校验前泄露内容 */
   hydrated: boolean;
   locked: boolean;
+  /** 最近一次切后台的时间戳；null 表示当前在前台 */
+  backgroundedAt: number | null;
   hydrate: () => Promise<void>;
   enablePinAsync: (pin: string) => Promise<void>;
   clearPinAsync: () => Promise<void>;
   setBiometricAsync: (enabled: boolean) => Promise<void>;
   unlockWithPinAsync: (pin: string) => Promise<boolean>;
   unlockWithBiometricAsync: () => Promise<boolean>;
+  markBackgrounded: () => void;
+  /** 回前台时按设置的超时判断是否重新锁定 */
+  maybeRelockOnForeground: () => void;
 }
 
 export const lockStore = create<LockState>((set, get) => ({
@@ -34,6 +40,7 @@ export const lockStore = create<LockState>((set, get) => ({
   biometricAvailable: false,
   hydrated: false,
   locked: false,
+  backgroundedAt: null,
 
   hydrate: async () => {
     const record = await loadPinRecordAsync();
@@ -83,5 +90,24 @@ export const lockStore = create<LockState>((set, get) => ({
     const ok = await authenticateBiometricAsync();
     if (ok) set({ locked: false });
     return ok;
+  },
+
+  markBackgrounded: () => {
+    if (get().pinEnabled) set({ backgroundedAt: Date.now() });
+  },
+
+  maybeRelockOnForeground: () => {
+    const { pinEnabled, locked, backgroundedAt } = get();
+    if (!pinEnabled || locked || backgroundedAt === null) {
+      set({ backgroundedAt: null });
+      return;
+    }
+    const minutes = settingsStore.getState().autoLockMinutes;
+    if (minutes !== AUTO_LOCK_NEVER && Date.now() - backgroundedAt >= minutes * 60_000) {
+      logger.info('pin', `relocked after ${Math.round((Date.now() - backgroundedAt) / 1000)}s in background`);
+      set({ locked: true, backgroundedAt: null });
+      return;
+    }
+    set({ backgroundedAt: null });
   },
 }));

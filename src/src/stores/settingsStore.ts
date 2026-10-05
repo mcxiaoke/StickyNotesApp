@@ -14,13 +14,27 @@ export const FONT_SIZE_LABELS: Record<FontSize, string> = {
   18: '超大',
 };
 
+/** 切后台多久后要求重新解锁；0 = 立即，-1 = 从不（仅冷启动锁定） */
+export const AUTO_LOCK_NEVER = -1;
+export const AUTO_LOCK_IMMEDIATE = 0;
+export const AUTO_LOCK_OPTIONS: { value: number; label: string }[] = [
+  { value: 0, label: '立即' },
+  { value: 1, label: '1 分钟' },
+  { value: 5, label: '5 分钟' },
+  { value: 15, label: '15 分钟' },
+  { value: 60, label: '1 小时' },
+  { value: AUTO_LOCK_NEVER, label: '从不' },
+];
+
 interface AppSettings {
   themeMode: ThemeMode;
   fontSize: FontSize;
+  autoLockMinutes: number;
   hydrated: boolean;
   hydrate: () => void;
   setThemeMode: (mode: ThemeMode) => void;
   setFontSize: (size: FontSize) => void;
+  setAutoLockMinutes: (minutes: number) => void;
 }
 
 const KV_KEY = 'app.settings.v1';
@@ -28,6 +42,7 @@ const KV_KEY = 'app.settings.v1';
 interface PersistShape {
   themeMode: ThemeMode;
   fontSize: FontSize;
+  autoLockMinutes: number;
 }
 
 function loadPersisted(): PersistShape | null {
@@ -44,12 +59,14 @@ function loadPersisted(): PersistShape | null {
 export const settingsStore = create<AppSettings>((set) => ({
   themeMode: 'system',
   fontSize: 14,
+  autoLockMinutes: 0,
   hydrated: false,
   hydrate: () => {
     const saved = loadPersisted();
     set({
       themeMode: saved?.themeMode ?? 'system',
       fontSize: saved?.fontSize ?? 14,
+      autoLockMinutes: saved?.autoLockMinutes ?? 0,
       hydrated: true,
     });
   },
@@ -61,11 +78,15 @@ export const settingsStore = create<AppSettings>((set) => ({
     set({ fontSize: size });
     persist({ fontSize: size });
   },
+  setAutoLockMinutes: (minutes) => {
+    set({ autoLockMinutes: minutes });
+    persist({ autoLockMinutes: minutes });
+  },
 }));
 
 function persist(patch: Partial<PersistShape>): void {
-  const { themeMode, fontSize } = settingsStore.getState();
-  kvSet(KV_KEY, JSON.stringify({ themeMode, fontSize, ...patch }));
+  const { themeMode, fontSize, autoLockMinutes } = settingsStore.getState();
+  kvSet(KV_KEY, JSON.stringify({ themeMode, fontSize, autoLockMinutes, ...patch }));
 }
 
 /** 解析实际使用的明暗方案（跟随系统时由调用方传入系统值） */
