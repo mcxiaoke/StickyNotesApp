@@ -1,6 +1,6 @@
 // PIN 管理弹层：启用（新 PIN+确认）/ 修改（当前+新+确认）/ 清除（当前）
 // 状态重置由父组件通过 key 重挂载完成，不用 effect 内 setState
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Modal, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 
 import { isValidPin, PIN_MAX_LENGTH } from '../services/pin';
@@ -38,8 +38,18 @@ export function PinSetupModal({
   const [values, setValues] = useState<Record<string, string>>({});
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const inputRefs = useRef<Record<string, TextInput | null>>({});
 
   const fields = mode === 'enable' ? ENABLE_FIELDS : mode === 'change' ? CHANGE_FIELDS : DISABLE_FIELDS;
+
+  // Modal 内 autoFocus 不可靠，弹层打开后手动聚焦第一个输入框以拉起键盘
+  // fields 引用自模块级常量，稳定不变
+  useEffect(() => {
+    if (visible) {
+      const timer = setTimeout(() => inputRefs.current[fields[0].key]?.focus(), 300);
+      return () => clearTimeout(timer);
+    }
+  }, [visible, fields]);
 
   const submit = async () => {
     if (busy) return;
@@ -66,17 +76,25 @@ export function PinSetupModal({
         <Pressable style={StyleSheet.absoluteFill} onPress={onClose} />
         <View style={styles.sheet}>
           <Text style={styles.title}>{mode === 'enable' ? '启用 PIN 锁' : mode === 'change' ? '修改 PIN' : '清除 PIN'}</Text>
-          {fields.map((f) => (
+          {fields.map((f, index) => (
             <View key={f.key} style={styles.field}>
               <Text style={styles.label}>{f.label}</Text>
               <TextInput
+                ref={(el) => {
+                  inputRefs.current[f.key] = el;
+                }}
                 style={styles.input}
                 value={values[f.key] ?? ''}
                 onChangeText={(text) => setValues((v) => ({ ...v, [f.key]: text.replace(/\D/g, '') }))}
                 keyboardType="number-pad"
                 secureTextEntry
                 maxLength={PIN_MAX_LENGTH}
-                autoFocus={f.key === fields[0].key}
+                returnKeyType={index < fields.length - 1 ? 'next' : 'done'}
+                onSubmitEditing={() => {
+                  const next = fields[index + 1];
+                  if (next) inputRefs.current[next.key]?.focus();
+                  else void submit();
+                }}
               />
             </View>
           ))}

@@ -14,13 +14,15 @@ export const FONT_SIZE_LABELS: Record<FontSize, string> = {
   18: '超大',
 };
 
-/** 切后台多久后要求重新解锁；0 = 立即，-1 = 从不（仅冷启动锁定） */
+/** 切后台多久后要求重新解锁；0 = 立即，-1 = 从不（仅冷启动锁定），默认 10 分钟 */
 export const AUTO_LOCK_NEVER = -1;
 export const AUTO_LOCK_IMMEDIATE = 0;
+export const AUTO_LOCK_DEFAULT = 10;
 export const AUTO_LOCK_OPTIONS: { value: number; label: string }[] = [
   { value: 0, label: '立即' },
   { value: 1, label: '1 分钟' },
   { value: 5, label: '5 分钟' },
+  { value: 10, label: '10 分钟' },
   { value: 15, label: '15 分钟' },
   { value: 60, label: '1 小时' },
   { value: AUTO_LOCK_NEVER, label: '从不' },
@@ -59,14 +61,14 @@ function loadPersisted(): PersistShape | null {
 export const settingsStore = create<AppSettings>((set) => ({
   themeMode: 'system',
   fontSize: 14,
-  autoLockMinutes: 0,
+  autoLockMinutes: AUTO_LOCK_DEFAULT,
   hydrated: false,
   hydrate: () => {
     const saved = loadPersisted();
     set({
       themeMode: saved?.themeMode ?? 'system',
       fontSize: saved?.fontSize ?? 14,
-      autoLockMinutes: saved?.autoLockMinutes ?? 0,
+      autoLockMinutes: saved?.autoLockMinutes ?? AUTO_LOCK_DEFAULT,
       hydrated: true,
     });
   },

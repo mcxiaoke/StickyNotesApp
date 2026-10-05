@@ -90,11 +90,19 @@ export default function NotesListScreen() {
           <Text style={styles.headerTitle}>便签</Text>
         </View>
         <View style={styles.headerActions}>
-          <SyncDot status={syncStatus} />
-          <Pressable hitSlop={8} onPress={() => router.push('/archive')}>
-            <Ionicons name="archive-outline" size={23} color={p.text} />
+          <View style={styles.headerSlot}>
+            <SyncDot status={syncStatus} />
+          </View>
+          <Pressable
+            style={({ pressed }) => [styles.headerSlot, pressed && styles.headerSlotPressed]}
+            onPress={() => router.push('/archive')}
+          >
+            <Ionicons name="archive-outline" size={22} color={p.text} />
           </Pressable>
-          <Pressable hitSlop={8} onPress={() => router.push('/settings')}>
+          <Pressable
+            style={({ pressed }) => [styles.headerSlot, pressed && styles.headerSlotPressed]}
+            onPress={() => router.push('/settings')}
+          >
             <Ionicons name="settings-outline" size={22} color={p.text} />
           </Pressable>
         </View>
@@ -207,12 +215,14 @@ const makeStyles = (p: ShellPalette) =>
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'space-between',
-      paddingHorizontal: 16,
-      paddingVertical: 10,
+      paddingHorizontal: 8,
+      // 与 Stack AppBar（56dp）保持统一高度
+      height: 56,
     },
     headerLeft: {
       flexDirection: 'row',
       alignItems: 'center',
+      paddingLeft: 8,
     },
     logo: {
       width: 28,
@@ -236,7 +246,17 @@ const makeStyles = (p: ShellPalette) =>
     headerActions: {
       flexDirection: 'row',
       alignItems: 'center',
-      gap: 14,
+      gap: 4,
+    },
+    headerSlot: {
+      width: 40,
+      height: 40,
+      borderRadius: 20,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    headerSlotPressed: {
+      backgroundColor: p.border,
     },
     searchWrap: {
       paddingHorizontal: 16,

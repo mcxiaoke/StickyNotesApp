@@ -30,6 +30,12 @@ export function LockScreen() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // 冷启动时 autoFocus 时序不稳，延迟聚焦确保键盘弹出
+  useEffect(() => {
+    const timer = setTimeout(() => inputRef.current?.focus(), 300);
+    return () => clearTimeout(timer);
+  }, []);
+
   const handleBiometric = async () => {
     setBusy(true);
     await unlockWithBiometricAsync();

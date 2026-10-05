@@ -119,25 +119,27 @@ export default function NoteEditorScreen() {
   return (
     <SafeAreaView style={[styles.safe, { backgroundColor: theme.background }]} edges={['top', 'bottom']}>
       <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-        {/* 顶部极窄工具栏 */}
+        {/* 顶部窄工具栏（高度与 Stack AppBar 统一） */}
         <View style={[styles.toolbar, { backgroundColor: theme.toolbar, borderBottomColor: theme.border }]}>
-          <Pressable hitSlop={10} onPress={handleBack}>
-            <Ionicons name="chevron-back" size={26} color={theme.text} />
+          <Pressable style={styles.toolbarSlot} onPress={handleBack}>
+            <Ionicons name="chevron-back" size={22} color={theme.text} />
           </Pressable>
           <View style={styles.toolbarRight}>
-            <Pressable hitSlop={8} onPress={() => void notesStore.getState().togglePinAsync(note.id)}>
+            <Pressable
+              style={styles.toolbarSlot}
+              onPress={() => void notesStore.getState().togglePinAsync(note.id)}
+            >
               <Ionicons
                 name="pin"
-                size={20}
+                size={22}
                 color={note.isPinnedInList ? theme.text : theme.secondary}
-                style={styles.toolbarIconSmall}
               />
             </Pressable>
-            <Pressable hitSlop={8} onPress={() => setPaletteVisible(true)}>
-              <Ionicons name="color-palette-outline" size={20} color={theme.text} style={styles.toolbarIconSmall} />
+            <Pressable style={styles.toolbarSlot} onPress={() => setPaletteVisible(true)}>
+              <Ionicons name="color-palette-outline" size={22} color={theme.text} />
             </Pressable>
-            <Pressable hitSlop={8} onPress={() => setMenuVisible(true)}>
-              <Ionicons name="ellipsis-horizontal" size={20} color={theme.text} />
+            <Pressable style={styles.toolbarSlot} onPress={() => setMenuVisible(true)}>
+              <Ionicons name="ellipsis-horizontal" size={22} color={theme.text} />
             </Pressable>
           </View>
         </View>
@@ -191,12 +193,17 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 14,
-    paddingVertical: 6,
+    paddingHorizontal: 8,
+    // 与 Stack AppBar（56dp）保持统一高度
+    height: 56,
     borderBottomWidth: StyleSheet.hairlineWidth,
   },
-  toolbarIconSmall: {
-    marginLeft: 14,
+  toolbarSlot: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   toolbarRight: {
     flexDirection: 'row',

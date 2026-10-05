@@ -119,7 +119,7 @@ export default function RootLayout() {
               name="archive"
               options={{ title: '已归档便签', headerBackTitle: '返回' }}
             />
-            <Stack.Screen name="settings/index" options={{ headerShown: false }} />
+            <Stack.Screen name="settings/index" options={{ title: '设置', headerBackTitle: '返回' }} />
             <Stack.Screen name="settings/sync" options={{ title: '同步设置', headerBackTitle: '返回' }} />
           </Stack>
         </GestureHandlerRootView>

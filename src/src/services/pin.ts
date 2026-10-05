@@ -1,5 +1,7 @@
-// PIN 锁凭据：PBKDF2-SHA256 + 随机盐 + 恒定时间比较（对齐桌面端 PinService 语义），
-// 盐与哈希经 expo-secure-store 存储（Android Keystore / iOS Keychain），不存明文
+// PIN 锁凭据：随机盐 + 单次 SHA-256 + 恒定时间比较。
+// 便签正文本身未加密，PIN 仅是 UI 级隐私锁（防君子不防小人），
+// 无需慢哈希（PBKDF2 在 Hermes 纯 JS 上 10 万次要 10 秒以上，实测）；
+// 盐防彩虹表，哈希经 expo-secure-store 存储（Android Keystore / iOS Keychain），不存明文
 import * as SecureStore from 'expo-secure-store';
 import * as LocalAuthentication from 'expo-local-authentication';
 import { pbkdf2 } from '@noble/hashes/pbkdf2.js';
@@ -10,11 +12,7 @@ import { logger } from './logger';
 const KEY = 'app.lock.pin.v1';
 export const PIN_MIN_LENGTH = 4;
 export const PIN_MAX_LENGTH = 8;
-// 10 万次在移动 JS（Hermes）上需 10 秒以上（实测），30k 为移动端安全与体验折中；
-// 盐与哈希本身存于系统安全硬件（Keystore/Keychain），离线爆破面有限
-const ITERATIONS = 30_000;
 const SALT_BYTES = 16;
-const DK_LEN = 32;
 
 export interface PinRecord {
   saltHex: string;
@@ -43,8 +41,18 @@ function getRandomBytes(n: number): Uint8Array {
   return globalThis.crypto.getRandomValues(bytes);
 }
 
-function hashPin(pin: string, saltHex: string, iterations: number): string {
-  return toHex(pbkdf2(sha256, new TextEncoder().encode(pin), fromHex(saltHex), { c: iterations, dkLen: DK_LEN }));
+function hashPin(pin: string, saltHex: string): string {
+  const salt = fromHex(saltHex);
+  const pinBytes = new TextEncoder().encode(pin);
+  const input = new Uint8Array(salt.length + pinBytes.length);
+  input.set(salt, 0);
+  input.set(pinBytes, salt.length);
+  return toHex(sha256(input));
+}
+
+/** 旧版本（PBKDF2）记录的兼容验证；修改 PIN 后即切换为单次 SHA-256 */
+function hashPinLegacy(pin: string, saltHex: string, iterations: number): string {
+  return toHex(pbkdf2(sha256, new TextEncoder().encode(pin), fromHex(saltHex), { c: iterations, dkLen: 32 }));
 }
 
 /** 恒定时间字符串比较（两侧等长 hex），避免比较时序侧信道 */
@@ -65,7 +73,7 @@ export async function loadPinRecordAsync(): Promise<PinRecord | null> {
     if (!raw) return null;
     const parsed = JSON.parse(raw) as PinRecord;
     // 完整性校验：字段缺失即视为损坏，绝不静默降级（对齐桌面端告警语义）
-    if (!parsed?.saltHex || !parsed?.hashHex || typeof parsed?.iterations !== 'number') {
+    if (!parsed?.saltHex || !parsed?.hashHex) {
       logger.warn('pin', 'corrupted pin record detected, lock disabled');
       return null;
     }
@@ -80,8 +88,8 @@ export async function savePinAsync(pin: string, biometric: boolean): Promise<voi
   const saltHex = toHex(getRandomBytes(SALT_BYTES));
   const record: PinRecord = {
     saltHex,
-    iterations: ITERATIONS,
-    hashHex: hashPin(pin, saltHex, ITERATIONS),
+    iterations: 1,
+    hashHex: hashPin(pin, saltHex),
     biometric,
     createdAt: new Date().toISOString(),
   };
@@ -103,7 +111,10 @@ export async function clearPinAsync(): Promise<void> {
 export async function verifyPinAsync(pin: string): Promise<boolean> {
   const record = await loadPinRecordAsync();
   if (!record) return false;
-  const candidate = hashPin(pin, record.saltHex, record.iterations);
+  const candidate =
+    typeof record.iterations === 'number' && record.iterations > 1
+      ? hashPinLegacy(pin, record.saltHex, record.iterations)
+      : hashPin(pin, record.saltHex);
   return timingSafeEqualHex(candidate, record.hashHex);
 }
 
