@@ -6,15 +6,16 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AppMenu, type MenuAction } from '../components/AppMenu';
 import type { ShellPalette } from '../constants/theme';
-import { useShellPalette } from '../hooks/use-shell';
+import { useShellPalette, useScheme } from '../hooks/use-shell';
 import { SPACING, RADII, FONT, LINE_HEIGHT, TOUCH_TARGET } from '../constants/metrics';
 import type { Note } from '../data/note';
-import { NOTE_COLOR_THEMES, displayTitle, previewText } from '../data/theme';
+import { getNoteColorTheme, displayTitle, previewText } from '../data/theme';
 import { relativeTime } from '../services/time';
 import { notesStore } from '../stores/notesStore';
 
 export default function ArchiveScreen() {
   const p = useShellPalette();
+  const dark = useScheme() === 'dark';
   const styles = makeStyles(p);
 
   const notes = notesStore((s) => s.notes);
@@ -53,7 +54,7 @@ export default function ArchiveScreen() {
         data={archived}
         keyExtractor={(item) => item.id}
         renderItem={({ item }) => {
-          const theme = NOTE_COLOR_THEMES[item.color];
+          const theme = getNoteColorTheme(item.color, dark);
           return (
             <Pressable style={styles.row} onPress={() => setMenuNote(item)}>
               <View style={[styles.rowColor, { backgroundColor: theme.toolbar }]} />

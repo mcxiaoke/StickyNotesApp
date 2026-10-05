@@ -17,11 +17,12 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AppMenu, type MenuAction } from '../../components/AppMenu';
 import { ColorPaletteSheet } from '../../components/ColorPaletteSheet';
-import { NOTE_COLOR_THEMES, type NoteColor } from '../../data/theme';
+import { getNoteColorTheme, type NoteColor } from '../../data/theme';
 import { AutoSaveCoordinator } from '../../services/autoSave';
 import { notesStore } from '../../stores/notesStore';
 import { settingsStore } from '../../stores/settingsStore';
 import { syncStore } from '../../stores/syncStore';
+import { useScheme } from '../../hooks/use-shell';
 import { SPACING, FONT, LINE_HEIGHT, TOUCH_TARGET, APPBAR_HEIGHT } from '../../constants/metrics';
 
 export default function NoteEditorScreen() {
@@ -36,7 +37,8 @@ export default function NoteEditorScreen() {
   const [menuVisible, setMenuVisible] = useState(false);
 
   const content = draft ?? note?.content ?? '';
-  const theme = NOTE_COLOR_THEMES[note?.color ?? 'yellow'];
+  const dark = useScheme() === 'dark';
+  const theme = getNoteColorTheme(note?.color ?? 'yellow', dark);
 
   const autoSave = useMemo(
     () =>
@@ -91,7 +93,7 @@ export default function NoteEditorScreen() {
         },
       },
     ],
-    [id, router],
+    [id, router, setDraft],
   );
 
   const handleBack = () => {
@@ -106,7 +108,7 @@ export default function NoteEditorScreen() {
 
   if (id === 'new' || !note) {
     return (
-      <SafeAreaView style={[styles.safe, { backgroundColor: NOTE_COLOR_THEMES.yellow.background }]}>
+      <SafeAreaView style={[styles.safe, { backgroundColor: getNoteColorTheme('yellow', dark).background }]}>
         <View style={styles.center}>
           <ActivityIndicator />
         </View>

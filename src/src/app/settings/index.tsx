@@ -7,9 +7,9 @@ import Constants from 'expo-constants';
 import * as Clipboard from 'expo-clipboard';
 
 import { FONT_SIZES, FONT_SIZE_LABELS, AUTO_LOCK_OPTIONS, settingsStore, type FontSize, type ThemeMode } from '../../stores/settingsStore';
-import { NOTE_COLOR_THEMES } from '../../data/theme';
+import { getNoteColorTheme } from '../../data/theme';
 import type { ShellPalette } from '../../constants/theme';
-import { useShellPalette } from '../../hooks/use-shell';
+import { useShellPalette, useScheme } from '../../hooks/use-shell';
 import { SPACING, RADII, FONT, LINE_HEIGHT } from '../../constants/metrics';
 import { getDeviceId } from '../../services/deviceId';
 import { logger } from '../../services/logger';
@@ -29,6 +29,7 @@ const THEME_OPTIONS: { key: ThemeMode; label: string }[] = [
 export default function SettingsScreen() {
   const router = useRouter();
   const p = useShellPalette();
+  const previewTheme = getNoteColorTheme('yellow', useScheme() === 'dark');
   const styles = makeStyles(p);
 
   const themeMode = settingsStore((s) => s.themeMode);
@@ -141,15 +142,15 @@ export default function SettingsScreen() {
             ))}
           </View>
 
-          {/* 实时预览卡片 */}
+          {/* 实时预览卡片（跟随当前明暗模式展示便签实际观感） */}
           <View
             style={[
               styles.previewCard,
-              { backgroundColor: NOTE_COLOR_THEMES.yellow.background, borderColor: NOTE_COLOR_THEMES.yellow.border },
+              { backgroundColor: previewTheme.background, borderColor: previewTheme.border },
             ]}
           >
-            <Text style={{ color: NOTE_COLOR_THEMES.yellow.text, fontSize, fontWeight: '700' }}>字号预览</Text>
-            <Text style={{ color: NOTE_COLOR_THEMES.yellow.secondary, fontSize: fontSize - 2, marginTop: 4 }}>
+            <Text style={{ color: previewTheme.text, fontSize, fontWeight: '700' }}>字号预览</Text>
+            <Text style={{ color: previewTheme.secondary, fontSize: fontSize - 2, marginTop: 4 }}>
               这是便签正文在当前字号下的显示效果。
             </Text>
           </View>

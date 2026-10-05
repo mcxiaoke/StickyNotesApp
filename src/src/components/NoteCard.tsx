@@ -4,10 +4,10 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import ReanimatedSwipeable from 'react-native-gesture-handler/ReanimatedSwipeable';
 import { Ionicons } from '@expo/vector-icons';
 import type { Note } from '../data/note';
-import { NOTE_COLOR_THEMES, displayTitle, previewText } from '../data/theme';
+import { getNoteColorTheme, displayTitle, previewText } from '../data/theme';
 import { highlightSegments, type SearchSegment } from '../services/search';
 import { relativeTime } from '../services/time';
-import { useShellPalette } from '../hooks/use-shell';
+import { useShellPalette, useScheme } from '../hooks/use-shell';
 import { SPACING, RADII, FONT, LINE_HEIGHT } from '../constants/metrics';
 
 export interface NoteCardProps {
@@ -19,7 +19,8 @@ export interface NoteCardProps {
 }
 
 export const NoteCard = memo(function NoteCard({ note, query, onPress, onMenu, onSwipeArchive }: NoteCardProps) {
-  const theme = NOTE_COLOR_THEMES[note.color];
+  const dark = useScheme() === 'dark';
+  const theme = getNoteColorTheme(note.color, dark);
   const p = useShellPalette();
   const searchQuery = query.trim();
 
