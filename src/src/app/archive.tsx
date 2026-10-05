@@ -1,18 +1,19 @@
 // 已归档便签管理页：查看 / 恢复 / 彻底删除 / 清空回收站
 import { useMemo, useState } from 'react';
-import { Pressable, StyleSheet, Text, View, useColorScheme } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { FlashList } from '@shopify/flash-list';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AppMenu, type MenuAction } from '../components/AppMenu';
-import { DARK_SHELL, LIGHT_SHELL, type ShellPalette } from '../constants/theme';
+import type { ShellPalette } from '../constants/theme';
+import { useShellPalette } from '../hooks/use-shell';
 import type { Note } from '../data/note';
 import { NOTE_COLOR_THEMES, displayTitle, previewText } from '../data/theme';
 import { relativeTime } from '../services/time';
 import { notesStore } from '../stores/notesStore';
 
 export default function ArchiveScreen() {
-  const p = useColorScheme() === 'dark' ? DARK_SHELL : LIGHT_SHELL;
+  const p = useShellPalette();
   const styles = makeStyles(p);
 
   const notes = notesStore((s) => s.notes);

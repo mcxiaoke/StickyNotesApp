@@ -1,6 +1,7 @@
 // 通用底部操作菜单（平台弹层形态，跨端一致的简单实现）
-import { Modal, Pressable, StyleSheet, Text, View, useColorScheme } from 'react-native';
-import { DARK_SHELL, LIGHT_SHELL, type ShellPalette } from '../constants/theme';
+import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
+import type { ShellPalette } from '../constants/theme';
+import { useShellPalette } from '../hooks/use-shell';
 
 export interface MenuAction {
   key: string;
@@ -20,8 +21,7 @@ export function AppMenu({
   actions: MenuAction[];
   title?: string;
 }) {
-  const scheme = useColorScheme();
-  const p = scheme === 'dark' ? DARK_SHELL : LIGHT_SHELL;
+  const p = useShellPalette();
   const styles = makeStyles(p);
 
   return (

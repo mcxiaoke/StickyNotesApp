@@ -10,11 +10,11 @@ import {
   Text,
   TextInput,
   View,
-  useColorScheme,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { DARK_SHELL, LIGHT_SHELL, type ShellPalette } from '../../constants/theme';
+import type { ShellPalette } from '../../constants/theme';
+import { useShellPalette } from '../../hooks/use-shell';
 import { getDeviceId } from '../../services/deviceId';
 import { getS3SecretAsync, getWebDavPasswordAsync, setS3SecretAsync, setWebDavPasswordAsync } from '../../services/credential';
 import { S3Backend } from '../../sync/backends/s3';
@@ -34,7 +34,7 @@ import { relativeTime } from '../../services/time';
 const INTERVAL_OPTIONS = [5, 10, 15, 30, 60];
 
 export default function SyncSettingsScreen() {
-  const p = useColorScheme() === 'dark' ? DARK_SHELL : LIGHT_SHELL;
+  const p = useShellPalette();
   const styles = makeStyles(p);
 
   const [form, setForm] = useState<SyncSettings>(DEFAULT_SYNC_SETTINGS);

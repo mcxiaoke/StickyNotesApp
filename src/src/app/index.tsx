@@ -7,7 +7,6 @@ import {
   Text,
   TextInput,
   View,
-  useColorScheme,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { FlashList } from '@shopify/flash-list';
@@ -17,7 +16,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { NoteCard } from '../components/NoteCard';
 import { AppMenu, type MenuAction } from '../components/AppMenu';
 import { SyncDot } from '../components/SyncDot';
-import { DARK_SHELL, LIGHT_SHELL, cardShadow, type ShellPalette } from '../constants/theme';
+import { cardShadow, type ShellPalette } from '../constants/theme';
+import { useShellPalette } from '../hooks/use-shell';
 import type { Note } from '../data/note';
 import { filterNotes } from '../services/search';
 import { notesStore } from '../stores/notesStore';
@@ -27,8 +27,7 @@ type FilterMode = 'all' | 'pinned';
 
 export default function NotesListScreen() {
   const router = useRouter();
-  const systemScheme = useColorScheme();
-  const p = systemScheme === 'dark' ? DARK_SHELL : LIGHT_SHELL;
+  const p = useShellPalette();
   const styles = makeStyles(p);
 
   const notes = notesStore((s) => s.notes);

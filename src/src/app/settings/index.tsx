@@ -1,6 +1,6 @@
 // 设置页：外观与显示（主题/字号带预览卡片）、网络同步入口、诊断日志、关于应用
 import { useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View, useColorScheme } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Constants from 'expo-constants';
@@ -8,7 +8,8 @@ import * as Clipboard from 'expo-clipboard';
 
 import { FONT_SIZES, FONT_SIZE_LABELS, settingsStore, type FontSize, type ThemeMode } from '../../stores/settingsStore';
 import { NOTE_COLOR_THEMES } from '../../data/theme';
-import { DARK_SHELL, LIGHT_SHELL, type ShellPalette } from '../../constants/theme';
+import type { ShellPalette } from '../../constants/theme';
+import { useShellPalette } from '../../hooks/use-shell';
 import { getDeviceId } from '../../services/deviceId';
 import { logger } from '../../services/logger';
 import { getLastCrash, clearLastCrash } from '../../services/crash';
@@ -21,8 +22,7 @@ const THEME_OPTIONS: { key: ThemeMode; label: string }[] = [
 
 export default function SettingsScreen() {
   const router = useRouter();
-  const systemScheme = useColorScheme();
-  const p = systemScheme === 'dark' ? DARK_SHELL : LIGHT_SHELL;
+  const p = useShellPalette();
   const styles = makeStyles(p);
 
   const themeMode = settingsStore((s) => s.themeMode);
@@ -96,8 +96,10 @@ export default function SettingsScreen() {
 
         {/* 网络同步入口 */}
         <Text style={styles.sectionTitle}>网络同步</Text>
-        <Pressable style={styles.card} onPress={() => router.push('/settings/sync')}>
-          <Text style={styles.entryText}>同步设置（WebDAV / Cloudflare R2）</Text>
+        <Pressable style={[styles.card, styles.entryRow]} onPress={() => router.push('/settings/sync')}>
+          <Text style={styles.entryText} numberOfLines={1}>
+            同步设置
+          </Text>
           <Text style={styles.entryArrow}>›</Text>
         </Pressable>
 
@@ -158,16 +160,9 @@ export default function SettingsScreen() {
             <Text style={styles.aboutValue}>v{Constants.expoConfig?.version ?? '1.0.0'}</Text>
           </View>
           <View style={styles.aboutRow}>
-            <Text style={styles.aboutLabel}>同步协议</Text>
-            <Text style={styles.aboutValue}>便签网络同步协议 v1</Text>
-          </View>
-          <View style={styles.aboutRow}>
             <Text style={styles.aboutLabel}>设备标识</Text>
             <Text style={styles.aboutValue}>{getDeviceId()}</Text>
           </View>
-          <Text style={styles.aboutNote}>
-            便签数据仅存储在本机与你的自有网盘/S3 存储桶，不经任何第三方服务器中转。
-          </Text>
         </View>
       </ScrollView>
     </SafeAreaView>
@@ -233,6 +228,10 @@ const makeStyles = (p: ShellPalette) =>
       borderWidth: StyleSheet.hairlineWidth,
       padding: 12,
       marginTop: 4,
+    },
+    entryRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
     },
     entryText: {
       color: p.text,
