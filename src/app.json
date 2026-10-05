@@ -11,6 +11,7 @@
       "icon": "./assets/expo.icon"
     },
     "android": {
+      "package": "com.mcxiaoke.stickynotes",
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
         "foregroundImage": "./assets/images/android-icon-foreground.png",
@@ -25,6 +26,11 @@
     },
     "plugins": [
       "expo-router",
+      "expo-sqlite",
+      "expo-secure-store",
+      "expo-background-task",
+      "expo-updates",
+      "./plugins/withAndroidSigning.js",
       [
         "expo-splash-screen",
         {
@@ -32,10 +38,7 @@
           "image": "./assets/images/splash-icon.png",
           "imageWidth": 76
         }
-      ],
-      "expo-sqlite",
-      "expo-secure-store",
-      "expo-background-task"
+      ]
     ],
     "experiments": {
       "typedRoutes": true,

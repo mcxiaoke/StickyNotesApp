@@ -41,3 +41,8 @@ example
 # generated native folders
 /ios
 /android
+
+# release signing secrets (see plugins/withAndroidSigning.js)
+key.properties
+credentials.json
+keystore/

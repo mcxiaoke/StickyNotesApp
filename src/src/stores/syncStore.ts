@@ -3,6 +3,7 @@ import { create } from 'zustand';
 import type { SyncRoundSummary } from '../sync/engine';
 import { performSyncRound, setSyncStateListener } from '../sync/syncRunner';
 import { loadSyncSettings } from '../sync/settings';
+import { logger } from '../services/logger';
 
 export type SyncStatus = 'disabled' | 'idle' | 'syncing' | 'success' | 'error';
 
@@ -39,8 +40,9 @@ export const syncStore = create<SyncState>((set, get) => ({
     try {
       await performSyncRound('manual');
       return true;
-    } catch {
-      // 错误状态已由 syncRunner.markError 写入
+    } catch (ex) {
+      // 错误状态已由 syncRunner 写入，这里补充内存日志
+      logger.warn('sync', `manual round rejected: ${ex instanceof Error ? ex.message : String(ex)}`);
       return false;
     }
   },

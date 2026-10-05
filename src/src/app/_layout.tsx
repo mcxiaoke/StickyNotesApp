@@ -9,12 +9,21 @@ import { LIGHT_SHELL, DARK_SHELL } from '../constants/theme';
 import { settingsStore, resolveScheme } from '../stores/settingsStore';
 import { notesStore } from '../stores/notesStore';
 import { syncStore } from '../stores/syncStore';
+import { crashStore } from '../stores/crashStore';
 import { performSyncRound } from '../sync/syncRunner';
 import { applyBackgroundSyncSchedule } from '../sync/scheduler';
+import { installGlobalErrorHandlers } from '../services/crash';
+import { logger } from '../services/logger';
+import { AppErrorBoundary } from '../components/AppErrorBoundary';
+import { CrashScreen } from '../components/CrashScreen';
+
+// 全局错误钩子必须在首次渲染前安装
+installGlobalErrorHandlers();
 
 export default function RootLayout() {
   const systemScheme = useColorScheme();
   const themeMode = settingsStore((s) => s.themeMode);
+  const fatalError = crashStore((s) => s.fatalError);
   const scheme = resolveScheme(themeMode, systemScheme === 'dark' ? 'dark' : systemScheme === 'light' ? 'light' : null);
   const shell = scheme === 'dark' ? DARK_SHELL : LIGHT_SHELL;
 
@@ -31,7 +40,7 @@ export default function RootLayout() {
     const onForeground = () => {
       fgTimer = setTimeout(() => {
         performSyncRound('foreground')
-          .catch(() => {})
+          .catch((ex) => logger.warn('sync', `foreground round failed: ${ex instanceof Error ? ex.message : String(ex)}`))
           .finally(() => void notesStore.getState().refreshAsync());
       }, 2000);
     };
@@ -44,39 +53,51 @@ export default function RootLayout() {
     };
   }, []);
 
+  // release 全局异常：崩溃屏接管整个应用（保持进程存活，可复制信息）
+  if (fatalError) {
+    return (
+      <CrashScreen
+        report={fatalError}
+        onReset={() => crashStore.getState().dismissFatal()}
+      />
+    );
+  }
+
   return (
-    <ThemeProvider
-      value={{
-        ...(scheme === 'dark' ? DarkTheme : DefaultTheme),
-        colors: {
-          ...(scheme === 'dark' ? DarkTheme : DefaultTheme).colors,
-          primary: shell.accent,
-          background: shell.background,
-          card: shell.surface,
-          text: shell.text,
-          border: shell.border,
-        },
-      }}
-    >
-      <StatusBar style={scheme === 'dark' ? 'light' : 'dark'} />
-      <GestureHandlerRootView style={{ flex: 1 }}>
-        <Stack
-          screenOptions={{
-            headerTitleStyle: { color: shell.text },
-            headerTintColor: shell.accent,
-            headerStyle: { backgroundColor: shell.surface },
-          }}
-        >
-          <Stack.Screen name="index" options={{ headerShown: false }} />
-          <Stack.Screen name="note/[id]" options={{ headerShown: false }} />
-          <Stack.Screen
-            name="archive"
-            options={{ title: '已归档便签', headerBackTitle: '返回' }}
-          />
-          <Stack.Screen name="settings/index" options={{ headerShown: false }} />
-          <Stack.Screen name="settings/sync" options={{ title: '同步设置', headerBackTitle: '返回' }} />
-        </Stack>
-      </GestureHandlerRootView>
-    </ThemeProvider>
+    <AppErrorBoundary>
+      <ThemeProvider
+        value={{
+          ...(scheme === 'dark' ? DarkTheme : DefaultTheme),
+          colors: {
+            ...(scheme === 'dark' ? DarkTheme : DefaultTheme).colors,
+            primary: shell.accent,
+            background: shell.background,
+            card: shell.surface,
+            text: shell.text,
+            border: shell.border,
+          },
+        }}
+      >
+        <StatusBar style={scheme === 'dark' ? 'light' : 'dark'} />
+        <GestureHandlerRootView style={{ flex: 1 }}>
+          <Stack
+            screenOptions={{
+              headerTitleStyle: { color: shell.text },
+              headerTintColor: shell.accent,
+              headerStyle: { backgroundColor: shell.surface },
+            }}
+          >
+            <Stack.Screen name="index" options={{ headerShown: false }} />
+            <Stack.Screen name="note/[id]" options={{ headerShown: false }} />
+            <Stack.Screen
+              name="archive"
+              options={{ title: '已归档便签', headerBackTitle: '返回' }}
+            />
+            <Stack.Screen name="settings/index" options={{ headerShown: false }} />
+            <Stack.Screen name="settings/sync" options={{ title: '同步设置', headerBackTitle: '返回' }} />
+          </Stack>
+        </GestureHandlerRootView>
+      </ThemeProvider>
+    </AppErrorBoundary>
   );
 }

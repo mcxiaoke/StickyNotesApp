@@ -6,6 +6,7 @@ import Constants from 'expo-constants';
 import { Platform } from 'react-native';
 import { loadSyncSettings } from './settings';
 import { performSyncRound } from './syncRunner';
+import { logger } from '../services/logger';
 
 export const BACKGROUND_SYNC_TASK = 'stickynotes-background-sync';
 
@@ -14,7 +15,8 @@ TaskManager.defineTask(BACKGROUND_SYNC_TASK, async () => {
   try {
     await performSyncRound('background');
     return BackgroundTask.BackgroundTaskResult.Success;
-  } catch {
+  } catch (ex) {
+    logger.error('sync', `background round failed: ${ex instanceof Error ? ex.message : String(ex)}`);
     return BackgroundTask.BackgroundTaskResult.Failed;
   }
 });
@@ -37,7 +39,7 @@ export async function applyBackgroundSyncSchedule(): Promise<void> {
     await BackgroundTask.registerTaskAsync(BACKGROUND_SYNC_TASK, {
       minimumInterval: Math.max(15, settings.backgroundSyncMinutes),
     });
-  } catch {
-    // 后台任务注册失败不阻断设置保存
+  } catch (ex) {
+    logger.warn('sync', `background task registration failed: ${ex instanceof Error ? ex.message : String(ex)}`);
   }
 }

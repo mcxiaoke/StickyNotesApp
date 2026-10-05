@@ -1,5 +1,7 @@
 // 自动保存协调器（方案 §4.2 编辑页保存策略）：输入停止 500ms 后静默持久化；
 // 页面返回、进入后台时调用 flush() 无延迟刷盘。
+import { logger } from './logger';
+
 type Saver = (id: string, content: string) => Promise<void>;
 
 export class AutoSaveCoordinator {
@@ -33,8 +35,9 @@ export class AutoSaveCoordinator {
     if (!pending) return;
     this.pending = null;
     this.flushing = this.save(pending.id, pending.content)
-      .catch(() => {
-        // 保存失败：内容重新排队，等待下次防抖重试
+      .catch((ex) => {
+        // 保存失败：记录并重新排队，等待下次防抖重试
+        logger.error('autosave', `save failed for note ${pending.id}: ${ex instanceof Error ? ex.message : String(ex)}`);
         this.pending = pending;
       })
       .finally(() => {

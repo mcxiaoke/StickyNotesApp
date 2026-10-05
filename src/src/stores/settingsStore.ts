@@ -1,6 +1,7 @@
 // 应用设置 store：主题模式与正文字号（持久化到 SQLite kv）
 import { create } from 'zustand';
 import { kvGet, kvSet } from '../data/db';
+import { logger } from '../services/logger';
 
 export type ThemeMode = 'system' | 'light' | 'dark';
 export const FONT_SIZES = [12, 14, 16, 18] as const;
@@ -34,7 +35,8 @@ function loadPersisted(): PersistShape | null {
   if (!raw) return null;
   try {
     return JSON.parse(raw) as PersistShape;
-  } catch {
+  } catch (ex) {
+    logger.warn('settings', `corrupted app settings ignored: ${String(ex)}`);
     return null;
   }
 }

@@ -4,6 +4,7 @@ import { noteRepository } from '../data/noteRepository';
 import type { Note } from '../data/note';
 import type { NoteColor } from '../data/theme';
 import { performSyncRound } from '../sync/syncRunner';
+import { logger } from '../services/logger';
 
 interface NotesState {
   notes: Note[];
@@ -24,10 +25,12 @@ let syncDebounceTimer: ReturnType<typeof setTimeout> | null = null;
 /** 编辑保存后 5 秒静默上行；归档/恢复后 2 秒快速同步墓碑 */
 function scheduleSyncDebounce(delayMs: number): void {
   if (syncDebounceTimer) clearTimeout(syncDebounceTimer);
-  syncDebounceTimer = setTimeout(() => {
-    syncDebounceTimer = null;
-    performSyncRound('debounce').catch(() => {});
-  }, delayMs);
+    syncDebounceTimer = setTimeout(() => {
+      syncDebounceTimer = null;
+      performSyncRound('debounce').catch((ex) =>
+        logger.warn('sync', `debounced round failed: ${ex instanceof Error ? ex.message : String(ex)}`),
+      );
+    }, delayMs);
 }
 
 export const SYNC_DELAY_AFTER_EDIT_MS = 5000;

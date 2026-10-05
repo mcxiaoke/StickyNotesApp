@@ -5,6 +5,7 @@ import { getDeviceId } from '../services/deviceId';
 import { createBackendAsync } from './backendFactory';
 import { SyncEngine, type SyncRoundSummary } from './engine';
 import { loadSyncSettings } from './settings';
+import { logger } from '../services/logger';
 
 const KV_LAST_SYNC = 'sync.lastSuccessAt';
 
@@ -36,11 +37,17 @@ export async function performSyncRound(trigger: string): Promise<SyncRoundSummar
       const nowIso = new Date().toISOString();
       kvSet(KV_LAST_SYNC, nowIso);
       listener?.({ type: 'success', at: nowIso, summary });
+      // 不含便签正文，仅统计（铁律 8）
+      logger.info(
+        'sync',
+        `round(${trigger}) ok: listed=${summary.listed} up=${summary.uploaded} down=${summary.downloaded} skipped=${summary.skippedInvalid} guarded=${summary.guardedSkipped}`,
+      );
     }
     return summary;
   } catch (ex) {
     const message = ex instanceof Error ? ex.message : String(ex);
     listener?.({ type: 'error', message });
+    logger.error('sync', `round(${trigger}) failed: ${message}`);
     throw ex;
   } finally {
     backend.dispose();

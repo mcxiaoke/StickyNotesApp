@@ -1,5 +1,6 @@
 // 同步设置持久化（非敏感部分存 SQLite kv；密码/密钥经 credential.ts 存系统安全存储）
 import { kvGet, kvSet } from '../data/db';
+import { logger } from '../services/logger';
 
 export type SyncBackendType = 'webdav' | 's3';
 
@@ -46,7 +47,8 @@ export function loadSyncSettings(): SyncSettings {
       webdav: { ...DEFAULT_SYNC_SETTINGS.webdav, ...parsed.webdav },
       s3: { ...DEFAULT_SYNC_SETTINGS.s3, ...parsed.s3 },
     };
-  } catch {
+  } catch (ex) {
+    logger.warn('syncSettings', `corrupted sync settings ignored: ${String(ex)}`);
     return { ...DEFAULT_SYNC_SETTINGS };
   }
 }
