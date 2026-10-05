@@ -2,7 +2,10 @@
 // 仅使用 PROPFIND / GET / PUT / DELETE / MKCOL 五个动词，Basic 认证，
 // notes/ 集合 404 时 MKCOL 递归自举，服务器拒绝 MKCOL 不视为致命。
 import { XMLParser } from 'fast-xml-parser';
+import { bytesToBase64 } from '../crypto/base64';
+import { utf8Encode } from '../crypto/utf8';
 import { NOTES_PREFIX, noteKey } from '../dto';
+import { normalizeUrlInput } from '../protocol';
 import { StorageBackendError, type IStorageBackend, type RemoteItem } from './types';
 
 const PROPFIND_BODY =
@@ -15,21 +18,23 @@ export interface WebDavConfig {
   allowHttp: boolean;
 }
 
-const REQUEST_TIMEOUT_MS = 20_000;
+/** 单请求超时：10 秒（测试连接与同步轮次共用，避免网络不可达时长时间挂起） */
+const REQUEST_TIMEOUT_MS = 10_000;
 
 export class WebDavBackend implements IStorageBackend {
   private readonly rootUrl: string;
   private readonly authHeader: string;
 
   constructor(private readonly config: WebDavConfig) {
-    let base = config.serverUrl.trim();
+    let base = normalizeUrlInput(config.serverUrl);
     if (!/^https?:\/\//i.test(base)) base = `https://${base}`;
     if (!base.endsWith('/')) base += '/';
     if (!config.allowHttp && base.toLowerCase().startsWith('http:')) {
       throw new StorageBackendError('不允许明文 HTTP：请在设置中开启「允许明文 HTTP」或改用 HTTPS 地址');
     }
     this.rootUrl = base;
-    this.authHeader = `Basic ${btoa(`${config.username}:${config.password}`)}`;
+    // Basic 认证使用自实现 Base64 + UTF-8 编码（不依赖 btoa，避免 RN Hermes 环境差异）
+    this.authHeader = `Basic ${bytesToBase64(utf8Encode(`${config.username}:${config.password}`))}`;
   }
 
   async listAsync(): Promise<RemoteItem[]> {

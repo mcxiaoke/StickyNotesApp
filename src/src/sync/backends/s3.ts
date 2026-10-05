@@ -2,6 +2,7 @@
 // path-style URL + 最小 SigV4 签名，ListObjectsV2 / GetObject / PutObject / DeleteObject。
 import { XMLParser } from 'fast-xml-parser';
 import { NOTES_PREFIX, noteKey } from '../dto';
+import { normalizeUrlInput } from '../protocol';
 import { signRequest } from '../crypto/sigv4';
 import { StorageBackendError, type IStorageBackend, type RemoteItem } from './types';
 
@@ -15,14 +16,17 @@ export interface S3Config {
 
 const REGION = 'auto';
 const SERVICE = 's3';
-const REQUEST_TIMEOUT_MS = 20_000;
+/** 单请求超时：10 秒（测试连接与同步轮次共用，避免网络不可达时长时间挂起） */
+const REQUEST_TIMEOUT_MS = 10_000;
 
 export class S3Backend implements IStorageBackend {
   private readonly endpoint: string;
+  /** 归一化后的对象前缀（含尾斜杠；空串表示桶根） */
+  private readonly basePrefix: string;
   private readonly notesObjectPrefix: string;
 
   constructor(private readonly config: S3Config) {
-    let base = config.endpoint.trim();
+    let base = normalizeUrlInput(config.endpoint);
     if (!/^https?:\/\//i.test(base)) base = `https://${base}`;
     while (base.endsWith('/')) base = base.slice(0, -1);
     if (base.toLowerCase().startsWith('http:')) {
@@ -31,8 +35,18 @@ export class S3Backend implements IStorageBackend {
     const bucket = config.bucket.trim();
     if (!bucket) throw new StorageBackendError('Bucket 桶名不能为空');
     this.endpoint = base;
-    const basePrefix = config.basePrefix.replace(/^\/+/, '');
-    this.notesObjectPrefix = basePrefix ? `${basePrefix}/${NOTES_PREFIX}` : NOTES_PREFIX;
+    const basePrefix = config.basePrefix.replace(/^\/+/, '').replace(/\/+$/, '');
+    this.basePrefix = basePrefix ? `${basePrefix}/` : '';
+    this.notesObjectPrefix = `${this.basePrefix}${NOTES_PREFIX}`;
+  }
+
+  /**
+   * 相对 key（"notes/x.json"）→ 完整对象 key（"{basePrefix}notes/x.json"）。
+   * 必须与桌面端 S3Backend.FullKey 一致：listAsync 的 prefix 与 get/put/delete 的路径
+   * 口径若不一致，会出现“写进去的对象永远列不出来”的静默失效。
+   */
+  private fullKey(key: string): string {
+    return `${this.basePrefix}${key.replace(/^\/+/, '')}`;
   }
 
   async listAsync(): Promise<RemoteItem[]> {
@@ -64,14 +78,14 @@ export class S3Backend implements IStorageBackend {
   }
 
   async getTextAsync(key: string): Promise<string | null> {
-    const res = await this.signedFetch('GET', `/${key}`);
+    const res = await this.signedFetch('GET', `/${this.fullKey(key)}`);
     if (res.status === 404) return null;
     if (!res.ok) this.throwForStatus('GET', res.status);
     return res.text();
   }
 
   async putTextAsync(key: string, content: string): Promise<void> {
-    const res = await this.signedFetch('PUT', `/${key}`, {
+    const res = await this.signedFetch('PUT', `/${this.fullKey(key)}`, {
       body: content,
       contentType: 'application/json; charset=utf-8',
     });
@@ -79,7 +93,7 @@ export class S3Backend implements IStorageBackend {
   }
 
   async deleteAsync(key: string): Promise<void> {
-    const res = await this.signedFetch('DELETE', `/${key}`);
+    const res = await this.signedFetch('DELETE', `/${this.fullKey(key)}`);
     if (res.status === 404) return;
     if (!res.ok) this.throwForStatus('DELETE', res.status);
   }

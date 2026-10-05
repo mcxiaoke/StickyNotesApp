@@ -1,3 +1,12 @@
+/** 绝对时间格式化（与桌面端同步状态行口径一致）：YYYY-MM-DD HH:mm:ss */
+export function formatDateTime(iso: string): string {
+  const t = Date.parse(iso);
+  if (Number.isNaN(t)) return '';
+  const d = new Date(t);
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+}
+
 // 相对时间格式化：刚刚 / N 分钟前 / N 小时前 / 昨天 HH:mm / MM-DD HH:mm
 export function relativeTime(iso: string, now: Date = new Date()): string {
   const t = Date.parse(iso);

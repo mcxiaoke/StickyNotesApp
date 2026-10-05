@@ -1,5 +1,5 @@
 // 设置页：外观与显示（主题/字号带预览卡片）、网络同步入口、诊断日志、关于应用
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Alert, Pressable, ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -18,6 +18,8 @@ import { exportNotesAsync, importNotesAsync } from '../../services/backup';
 import { getLastBackupDate } from '../../services/dbBackup';
 import { verifyPinAsync } from '../../services/pin';
 import { lockStore } from '../../stores/lockStore';
+import { syncStore } from '../../stores/syncStore';
+import { formatDateTime } from '../../services/time';
 import { PinSetupModal, type PinModalMode } from '../../components/PinSetupModal';
 
 const THEME_OPTIONS: { key: ThemeMode; label: string }[] = [
@@ -46,6 +48,19 @@ export default function SettingsScreen() {
   const biometricAvailable = lockStore((s) => s.biometricAvailable);
   const autoLockMinutes = settingsStore((s) => s.autoLockMinutes);
   const [pinModal, setPinModal] = useState<PinModalMode | null>(null);
+
+  // 网络同步状态（对齐桌面端主设置页「网络同步」分组的最近同步指标展示）
+  const syncStatus = syncStore((s) => s.status);
+  const syncStats = syncStore((s) => s.stats);
+  const syncLastError = syncStore((s) => s.lastError);
+
+  const syncLine = useMemo(() => {
+    if (syncStatus === 'disabled') return '同步未启用';
+    if (syncStatus === 'syncing') return '正在同步…';
+    if (syncStatus === 'error') return `同步失败：${syncLastError ?? '未知错误'}`;
+    if (!syncStats) return '已启用 · 尚未同步';
+    return `最近同步：${formatDateTime(syncStats.at)}（上传 ${syncStats.uploaded}，下载 ${syncStats.downloaded}）`;
+  }, [syncStatus, syncStats, syncLastError]);
 
   const onPinModalSubmit = async (values: Record<string, string>): Promise<string | null> => {
     const mode = pinModal;
@@ -158,12 +173,15 @@ export default function SettingsScreen() {
 
         {/* 网络同步入口 */}
         <Text style={styles.sectionTitle}>网络同步</Text>
-        <Pressable style={[styles.card, styles.entryRow]} onPress={() => router.push('/settings/sync')}>
-          <Text style={styles.entryText} numberOfLines={1}>
-            同步设置
-          </Text>
-          <Text style={styles.entryArrow}>›</Text>
-        </Pressable>
+        <View style={styles.card}>
+          <Pressable style={styles.entryRow} onPress={() => router.push('/settings/sync')}>
+            <Text style={styles.entryText} numberOfLines={1}>
+              同步设置
+            </Text>
+            <Text style={styles.entryArrow}>›</Text>
+          </Pressable>
+          <Text style={[styles.syncLine, syncStatus === 'error' && { color: p.danger }]}>{syncLine}</Text>
+        </View>
 
         {/* 数据管理 */}
         <Text style={styles.sectionTitle}>数据管理</Text>
@@ -403,6 +421,12 @@ const makeStyles = (p: ShellPalette) =>
     entryArrow: {
       color: p.secondaryText,
       fontSize: FONT.headline,
+    },
+    syncLine: {
+      color: p.secondaryText,
+      fontSize: FONT.small,
+      lineHeight: LINE_HEIGHT.small,
+      marginTop: SPACING.xs + 2,
     },
     aboutRow: {
       flexDirection: 'row',

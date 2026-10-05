@@ -1,8 +1,7 @@
-// 同步设置页：后端选型、WebDAV/R2 参数、凭据安全存储、测试连接、立即同步、状态诊断
+// 同步设置页：后端选型、WebDAV/R2 参数、端到端加密开关、凭据安全存储、测试连接、立即同步、状态诊断
 import { useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
-  Alert,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -20,7 +19,12 @@ import { getDeviceId } from '../../services/deviceId';
 import { getS3SecretAsync, getWebDavPasswordAsync, setS3SecretAsync, setWebDavPasswordAsync } from '../../services/credential';
 import { S3Backend } from '../../sync/backends/s3';
 import { WebDavBackend } from '../../sync/backends/webdav';
+import type { IStorageBackend } from '../../sync/backends/types';
+import { ensureVerifierAsync } from '../../sync/authVerifier';
+import { getVaultSecret, isUsingLocalSecret } from '../../sync/crypto/vaultSecret';
+import { getEffectiveS3Prefix, getEffectiveWebDavUrl } from '../../sync/protocol';
 import { applyBackgroundSyncSchedule } from '../../sync/scheduler';
+import { withTimeout } from '../../sync/timeout';
 import {
   DEFAULT_SYNC_SETTINGS,
   loadSyncSettings,
@@ -30,9 +34,12 @@ import {
 } from '../../sync/settings';
 import { syncStore } from '../../stores/syncStore';
 import { notesStore } from '../../stores/notesStore';
-import { relativeTime } from '../../services/time';
+import { formatDateTime, relativeTime } from '../../services/time';
 
 const INTERVAL_OPTIONS = [5, 10, 15, 30, 60];
+
+/** 「测试连接」硬超时：与后端单请求超时一致，保证 UI 10 秒内必定给出反馈 */
+const TEST_TIMEOUT_MS = 10_000;
 
 export default function SyncSettingsScreen() {
   const p = useShellPalette();
@@ -45,15 +52,18 @@ export default function SyncSettingsScreen() {
   const [testing, setTesting] = useState(false);
   const [testResult, setTestResult] = useState<string | null>(null);
   const [syncing, setSyncing] = useState(false);
+  const [busyHint, setBusyHint] = useState<string | null>(null);
 
   const status = syncStore((s) => s.status);
   const lastSuccessAt = syncStore((s) => s.lastSuccessAt);
   const lastError = syncStore((s) => s.lastError);
+  const stats = syncStore((s) => s.stats);
 
   useEffect(() => {
     void (async () => {
       const settings = loadSyncSettings();
       setForm(settings);
+      syncStore.getState().hydrate();
       setWebdavPassword((await getWebDavPasswordAsync()) ?? '');
       setS3Secret((await getS3SecretAsync()) ?? '');
     })();
@@ -63,43 +73,82 @@ export default function SyncSettingsScreen() {
     setForm((prev) => updater(prev));
     setDirty(true);
     setTestResult(null);
+    setBusyHint(null);
   };
 
   const statusLine = useMemo(() => {
+    if (!form.enabled) return '同步未启用';
     switch (status) {
       case 'syncing':
-        return '同步中...';
+        return '正在同步…';
       case 'success':
         return '已启用 · 最近同步成功';
       case 'error':
         return '已启用 · 最近同步失败';
       default:
-        return form.enabled ? '已启用' : '未启用';
+        return lastSuccessAt ? '已启用' : '已启用 · 尚未同步';
     }
-  }, [status, form.enabled]);
+  }, [status, form.enabled, lastSuccessAt]);
 
-  const persist = async (): Promise<void> => {
+  // 上次同步指标（对齐桌面端状态行口径）
+  const statsLine = useMemo(() => {
+    if (!form.enabled) return null;
+    if (!stats) return '尚未完成首次同步';
+    return `最近同步：${formatDateTime(stats.at)}（上传 ${stats.uploaded}，下载 ${stats.downloaded}，远端 ${stats.listed}）`;
+  }, [stats, form.enabled]);
+
+  const persist = async (options: { autoSync?: boolean } = {}): Promise<void> => {
     saveSyncSettings(form);
     await setWebDavPasswordAsync(webdavPassword);
     await setS3SecretAsync(s3Secret);
     await applyBackgroundSyncSchedule();
     syncStore.getState().hydrate();
     setDirty(false);
+
+    if (!options.autoSync || !form.enabled) {
+      setBusyHint('设置已保存。');
+      return;
+    }
+
+    // 对齐桌面端行为：保存后立即触发一轮同步，配置改动无需等待后台周期
+    setBusyHint('设置已保存，正在触发同步…');
+    const started = await syncStore.getState().runNow();
+    await notesStore.getState().refreshAsync();
+    setBusyHint(
+      started
+        ? '设置已保存，并已触发一轮同步（结果见上方状态）。'
+        : '设置已保存；本轮同步未启动或失败，详见上方状态与诊断日志。',
+    );
   };
 
   const handleTest = async () => {
     setTesting(true);
     setTestResult(null);
+    setBusyHint(null);
     const startedAt = Date.now();
+    let backend: IStorageBackend | null = null;
     try {
-      const backend = buildBackendFromForm(form, webdavPassword, s3Secret);
-      await backend.testAsync();
-      backend.dispose();
-      setTestResult(`连接成功（${Date.now() - startedAt} ms）`);
+      backend = buildTestBackend(form, webdavPassword, s3Secret);
+      await withTimeout(
+        backend.testAsync(),
+        TEST_TIMEOUT_MS,
+        '连接超时（10 秒内无响应），请检查地址、网络与凭据',
+      );
+      let extra = '';
+      if (form.enableEncryption) {
+        // 与正式同步一致的预检：探针不存在则自举创建，存在则校验口令
+        await withTimeout(
+          ensureVerifierAsync(backend, getVaultSecret()),
+          TEST_TIMEOUT_MS,
+          '加密口令探针校验超时（10 秒内无响应）',
+        );
+        extra = '，加密探针校验通过';
+      }
+      setTestResult(`连接成功（${Date.now() - startedAt} ms）${extra}`);
     } catch (ex) {
-      const message = ex instanceof Error ? ex.message : String(ex);
-      setTestResult(`连接失败：${message}`);
+      setTestResult(`连接失败：${ex instanceof Error ? ex.message : String(ex)}`);
     } finally {
+      backend?.dispose();
       setTesting(false);
     }
   };
@@ -107,10 +156,11 @@ export default function SyncSettingsScreen() {
   const handleSyncNow = async () => {
     await persist();
     setSyncing(true);
+    setBusyHint('正在同步…');
     try {
-      await syncStore.getState().runNow();
+      const started = await syncStore.getState().runNow();
       await notesStore.getState().refreshAsync();
-      Alert.alert('同步完成', '本轮同步已结束，详情见下方状态诊断。');
+      setBusyHint(started ? '本轮同步已结束，详情见上方状态。' : '同步未启动（未启用或上一轮仍在进行）。');
     } finally {
       setSyncing(false);
     }
@@ -129,10 +179,14 @@ export default function SyncSettingsScreen() {
             />
           </View>
           <Text style={styles.statusText}>状态：{statusLine}</Text>
+          {statsLine ? <Text style={styles.statusText}>{statsLine}</Text> : null}
           {lastSuccessAt ? (
-            <Text style={styles.statusText}>最近成功同步：{relativeTime(lastSuccessAt)}</Text>
+            <Text style={styles.statusText}>上次成功：{relativeTime(lastSuccessAt)}</Text>
           ) : null}
           {lastError ? <Text style={styles.errorText}>上次错误：{lastError}</Text> : null}
+          {dirty ? (
+            <Text style={styles.warningText}>配置已修改，点下方「保存设置」后生效并立即触发同步。</Text>
+          ) : null}
         </View>
 
         <Text style={styles.sectionTitle}>存储后端</Text>
@@ -167,6 +221,10 @@ export default function SyncSettingsScreen() {
                 keyboardType="url"
                 p={p}
               />
+              <Text style={styles.hintText}>
+                会自动追加 {form.enableEncryption ? 'stickynotes-vault/' : 'stickynotes-data/'}
+                （与桌面端目录口径一致，已含该子目录时不会重复追加）。
+              </Text>
               <Field
                 label="用户名"
                 placeholder="账号 / 邮箱"
@@ -225,6 +283,10 @@ export default function SyncSettingsScreen() {
                 autoCapitalize="none"
                 p={p}
               />
+              <Text style={styles.hintText}>
+                会自动归一为 {getEffectiveS3Prefix(form.s3.basePrefix, form.enableEncryption)}
+                （与桌面端目录口径一致）。
+              </Text>
               <Field
                 label="AccessKey ID"
                 placeholder="AccessKey ID"
@@ -265,6 +327,28 @@ export default function SyncSettingsScreen() {
           </View>
         </View>
 
+        <Text style={styles.sectionTitle}>安全</Text>
+        <View style={styles.card}>
+          <View style={styles.switchRow}>
+            <View style={styles.flex1}>
+              <Text style={styles.rowLabel}>端到端防偷窥加密</Text>
+              <Text style={styles.hintText}>
+                开启后正文以 AES-256 加密存入 stickynotes-vault/，云端只能看到密文；
+                关闭则存明文 stickynotes-data/。
+              </Text>
+            </View>
+            <Switch
+              value={form.enableEncryption}
+              onValueChange={(v) => patch((d) => ({ ...d, enableEncryption: v }))}
+              trackColor={{ true: p.accent }}
+            />
+          </View>
+          <Text style={styles.hintText}>
+            两套目录相互独立，切换开关等于更换同步数据集，不会自动迁移已有数据；
+            建议先完成一轮同步再切换。加密密钥与桌面端一致{isUsingLocalSecret() ? '（本地专属密钥）' : '（公开回落口令，无法与桌面端互通）'}。
+          </Text>
+        </View>
+
         <Text style={styles.sectionTitle}>操作</Text>
         <View style={styles.card}>
           <View style={styles.buttonRow}>
@@ -278,8 +362,12 @@ export default function SyncSettingsScreen() {
           {testResult ? (
             <Text style={testResult.startsWith('连接成功') ? styles.successText : styles.errorText}>{testResult}</Text>
           ) : null}
+          {busyHint ? <Text style={styles.statusText}>{busyHint}</Text> : null}
           {dirty ? (
-            <Pressable style={[styles.button, styles.saveButton]} onPress={() => void persist()}>
+            <Pressable
+              style={[styles.button, styles.saveButton]}
+              onPress={() => void persist({ autoSync: true })}
+            >
               <Text style={styles.buttonText}>保存设置</Text>
             </Pressable>
           ) : null}
@@ -353,19 +441,28 @@ const fieldStyles = StyleSheet.create({
   },
 });
 
-function buildBackendFromForm(form: SyncSettings, webdavPassword: string, s3Secret: string) {
+/**
+ * 用设置页草稿值构造临时后端（不读写已保存配置）。
+ * 存储根与 createBackendAsync 走同一套子目录路由，保证「测试连接」验证的正是真实同步路径。
+ */
+function buildTestBackend(form: SyncSettings, webdavPassword: string, s3Secret: string): IStorageBackend {
   if (form.backendType === 'webdav') {
+    const effectiveUrl = getEffectiveWebDavUrl(form.webdav.serverUrl, form.enableEncryption);
+    if (!effectiveUrl) throw new Error('请先填写服务器地址');
+    if (!form.webdav.username) throw new Error('请先填写用户名');
     return new WebDavBackend({
-      serverUrl: form.webdav.serverUrl,
+      serverUrl: effectiveUrl,
       username: form.webdav.username,
       password: webdavPassword,
       allowHttp: form.webdav.allowHttp,
     });
   }
+  if (!form.s3.endpoint) throw new Error('请先填写 Endpoint');
+  if (!form.s3.bucket) throw new Error('请先填写 Bucket 桶名');
   return new S3Backend({
     endpoint: form.s3.endpoint,
     bucket: form.s3.bucket,
-    basePrefix: form.s3.basePrefix,
+    basePrefix: getEffectiveS3Prefix(form.s3.basePrefix, form.enableEncryption),
     accessKeyId: form.s3.accessKeyId,
     secretAccessKey: s3Secret,
   });
@@ -442,6 +539,12 @@ const makeStyles = (p: ShellPalette) =>
       fontSize: FONT.label,
       lineHeight: LINE_HEIGHT.label,
       marginTop: 2,
+    },
+    hintText: {
+      color: p.secondaryText,
+      fontSize: FONT.small,
+      lineHeight: LINE_HEIGHT.small,
+      marginBottom: SPACING.sm,
     },
     warningText: {
       color: p.warning,

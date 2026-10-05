@@ -13,6 +13,8 @@ const VALID_DTO: SyncNoteDto = {
   schemaVersion: 1,
   id: '9f3c8a4e-1b2d-4c3e-a5f6-0123456789ab',
   content: '便签正文（纯文本，\n换行）',
+  iv: null,
+  payload: null,
   color: 'yellow',
   isPinnedInList: false,
   alwaysOnTop: false,

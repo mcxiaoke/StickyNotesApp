@@ -6,6 +6,8 @@ export type SyncBackendType = 'webdav' | 's3';
 
 export interface SyncSettings {
   enabled: boolean;
+  /** 端到端防偷窥加密：正文加密后写入 stickynotes-vault/，明文写入 stickynotes-data/ */
+  enableEncryption: boolean;
   backendType: SyncBackendType;
   webdav: {
     serverUrl: string;
@@ -23,6 +25,7 @@ export interface SyncSettings {
 
 export const DEFAULT_SYNC_SETTINGS: SyncSettings = {
   enabled: false,
+  enableEncryption: false,
   backendType: 'webdav',
   webdav: { serverUrl: '', username: '', allowHttp: false },
   s3: {
