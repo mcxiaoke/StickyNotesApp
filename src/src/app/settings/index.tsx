@@ -1,6 +1,6 @@
 // 设置页：外观与显示（主题/字号带预览卡片）、网络同步入口、诊断日志、关于应用
 import { useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Constants from 'expo-constants';
@@ -13,6 +13,7 @@ import { useShellPalette } from '../../hooks/use-shell';
 import { getDeviceId } from '../../services/deviceId';
 import { logger } from '../../services/logger';
 import { getLastCrash, clearLastCrash } from '../../services/crash';
+import { exportNotesAsync, importNotesAsync } from '../../services/backup';
 
 const THEME_OPTIONS: { key: ThemeMode; label: string }[] = [
   { key: 'system', label: '跟随系统' },
@@ -31,6 +32,35 @@ export default function SettingsScreen() {
   const [logCopied, setLogCopied] = useState(false);
   // 仅用于在清空/复制日志后触发本组件重渲染以刷新条数显示
   const [, setLogTick] = useState(0);
+  const [dataBusy, setDataBusy] = useState(false);
+
+  const onExport = async () => {
+    setDataBusy(true);
+    try {
+      const count = await exportNotesAsync();
+      logger.info('settings', `export finished: ${count} notes`);
+    } catch (ex) {
+      Alert.alert('导出失败', ex instanceof Error ? ex.message : String(ex));
+    } finally {
+      setDataBusy(false);
+    }
+  };
+
+  const onImport = async () => {
+    setDataBusy(true);
+    try {
+      const summary = await importNotesAsync();
+      if (!summary) return;
+      const lines = [`共 ${summary.total} 条，导入 ${summary.imported} 条`];
+      if (summary.skipped > 0) lines.push(`跳过重复 ${summary.skipped} 条`);
+      if (summary.invalid > 0) lines.push(`无效 ${summary.invalid} 条`);
+      Alert.alert('导入完成', lines.join('，'));
+    } catch (ex) {
+      Alert.alert('导入失败', ex instanceof Error ? ex.message : String(ex));
+    } finally {
+      setDataBusy(false);
+    }
+  };
 
   const copyText = async (text: string) => {
     await Clipboard.setStringAsync(text);
@@ -102,6 +132,26 @@ export default function SettingsScreen() {
           </Text>
           <Text style={styles.entryArrow}>›</Text>
         </Pressable>
+
+        {/* 数据管理 */}
+        <Text style={styles.sectionTitle}>数据管理</Text>
+        <View style={styles.card}>
+          <Text style={styles.aboutNote}>
+            导出全部便签（含归档）为 JSON 文件备份或迁移到其他设备；导入按便签 ID 去重，不会覆盖已有数据。
+          </Text>
+          <View style={styles.logButtonRow}>
+            <Pressable style={styles.logButton} disabled={dataBusy} onPress={() => void onExport()}>
+              <Text style={styles.logButtonText}>导出数据</Text>
+            </Pressable>
+            <Pressable
+              style={[styles.logButton, styles.logButtonSecondary]}
+              disabled={dataBusy}
+              onPress={() => void onImport()}
+            >
+              <Text style={styles.logButtonText}>导入数据</Text>
+            </Pressable>
+          </View>
+        </View>
 
         {/* 诊断日志 */}
         <Text style={styles.sectionTitle}>诊断日志</Text>
@@ -297,6 +347,9 @@ const makeStyles = (p: ShellPalette) =>
     },
     logButtonCopied: {
       backgroundColor: '#209E35',
+    },
+    logButtonSecondary: {
+      backgroundColor: p.secondaryText,
     },
     logButtonText: {
       color: '#FFFFFF',
