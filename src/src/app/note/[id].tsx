@@ -22,6 +22,7 @@ import { AutoSaveCoordinator } from '../../services/autoSave';
 import { notesStore } from '../../stores/notesStore';
 import { settingsStore } from '../../stores/settingsStore';
 import { syncStore } from '../../stores/syncStore';
+import { SPACING, FONT, LINE_HEIGHT, TOUCH_TARGET, APPBAR_HEIGHT } from '../../constants/metrics';
 
 export default function NoteEditorScreen() {
   const router = useRouter();
@@ -193,15 +194,15 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 8,
+    paddingHorizontal: SPACING.sm,
     // 与 Stack AppBar（56dp）保持统一高度
-    height: 56,
+    height: APPBAR_HEIGHT,
     borderBottomWidth: StyleSheet.hairlineWidth,
   },
   toolbarSlot: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: TOUCH_TARGET,
+    height: TOUCH_TARGET,
+    borderRadius: TOUCH_TARGET / 2,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -211,16 +212,17 @@ const styles = StyleSheet.create({
   },
   editor: {
     flex: 1,
-    padding: 16,
+    padding: SPACING.lg,
   },
   statusBar: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
+    paddingHorizontal: SPACING.lg,
+    paddingVertical: SPACING.sm,
     borderTopWidth: StyleSheet.hairlineWidth,
   },
   statusText: {
-    fontSize: 12,
+    fontSize: FONT.small,
+    lineHeight: LINE_HEIGHT.small,
   },
 });

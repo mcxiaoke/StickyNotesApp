@@ -7,6 +7,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { AppMenu, type MenuAction } from '../components/AppMenu';
 import type { ShellPalette } from '../constants/theme';
 import { useShellPalette } from '../hooks/use-shell';
+import { SPACING, RADII, FONT, LINE_HEIGHT, TOUCH_TARGET } from '../constants/metrics';
 import type { Note } from '../data/note';
 import { NOTE_COLOR_THEMES, displayTitle, previewText } from '../data/theme';
 import { relativeTime } from '../services/time';
@@ -96,60 +97,66 @@ const makeStyles = (p: ShellPalette) =>
       flexDirection: 'row',
       justifyContent: 'space-between',
       alignItems: 'center',
-      paddingHorizontal: 16,
-      paddingVertical: 10,
+      paddingHorizontal: SPACING.lg,
+      paddingVertical: SPACING.md - 2,
     },
     countText: {
       color: p.secondaryText,
-      fontSize: 13,
+      fontSize: FONT.label,
+      lineHeight: LINE_HEIGHT.label,
     },
     clearText: {
       color: p.danger,
-      fontSize: 14,
+      fontSize: FONT.body,
+      lineHeight: LINE_HEIGHT.body,
     },
     row: {
       flexDirection: 'row',
       alignItems: 'center',
       backgroundColor: p.surface,
-      borderRadius: 10,
-      marginHorizontal: 16,
-      marginBottom: 8,
-      padding: 12,
+      borderRadius: RADII.md,
+      marginHorizontal: SPACING.lg,
+      marginBottom: SPACING.sm,
+      padding: SPACING.md,
     },
     rowColor: {
       width: 10,
-      height: 40,
+      height: TOUCH_TARGET,
       borderRadius: 5,
-      marginRight: 12,
+      marginRight: SPACING.md,
     },
     rowBody: {
       flex: 1,
     },
     rowTitle: {
       color: p.text,
-      fontSize: 15,
+      fontSize: FONT.bodyLg,
+      lineHeight: LINE_HEIGHT.bodyLg,
       fontWeight: '600',
     },
     rowPreview: {
       color: p.secondaryText,
-      fontSize: 13,
+      fontSize: FONT.label,
+      lineHeight: LINE_HEIGHT.label,
       marginTop: 2,
     },
     rowTime: {
       color: p.secondaryText,
-      fontSize: 11,
-      marginLeft: 8,
+      fontSize: FONT.caption,
+      lineHeight: LINE_HEIGHT.caption,
+      marginLeft: SPACING.sm,
     },
     empty: {
       alignItems: 'center',
-      paddingTop: 80,
+      paddingTop: SPACING.emptyTop,
     },
     emptyIcon: {
       fontSize: 44,
-      marginBottom: 12,
+      marginBottom: SPACING.md,
     },
     emptyText: {
       color: p.secondaryText,
-      fontSize: 14,
+      fontSize: FONT.body,
+      lineHeight: LINE_HEIGHT.body,
     },
   });

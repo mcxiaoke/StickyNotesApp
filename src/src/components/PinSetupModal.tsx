@@ -6,6 +6,7 @@ import { Modal, Pressable, StyleSheet, Text, TextInput, View } from 'react-nativ
 import { isValidPin, PIN_MAX_LENGTH } from '../services/pin';
 import type { ShellPalette } from '../constants/theme';
 import { useShellPalette } from '../hooks/use-shell';
+import { SPACING, RADII, FONT, LINE_HEIGHT } from '../constants/metrics';
 
 export type PinModalMode = 'enable' | 'change' | 'disable';
 
@@ -117,65 +118,69 @@ const makeStyles = (p: ShellPalette) =>
   StyleSheet.create({
     overlay: {
       flex: 1,
-      backgroundColor: '#00000066',
+      backgroundColor: p.scrim,
       alignItems: 'center',
       justifyContent: 'center',
-      padding: 24,
+      padding: SPACING.xl,
     },
     sheet: {
       width: '100%',
       backgroundColor: p.surface,
-      borderRadius: 16,
-      padding: 20,
+      borderRadius: RADII.lg,
+      padding: SPACING.xl - 4,
     },
     title: {
       color: p.text,
-      fontSize: 17,
+      fontSize: FONT.title,
+      lineHeight: LINE_HEIGHT.title,
       fontWeight: '700',
-      marginBottom: 16,
+      marginBottom: SPACING.lg,
     },
     field: {
-      marginBottom: 12,
+      marginBottom: SPACING.md,
     },
     label: {
       color: p.secondaryText,
-      fontSize: 13,
-      marginBottom: 6,
+      fontSize: FONT.label,
+      lineHeight: LINE_HEIGHT.label,
+      marginBottom: SPACING.xs + 2,
     },
     input: {
       borderWidth: StyleSheet.hairlineWidth,
       borderColor: p.border,
-      borderRadius: 10,
+      borderRadius: RADII.md,
       backgroundColor: p.background,
       color: p.text,
       fontSize: 18,
       letterSpacing: 8,
       textAlign: 'center',
-      paddingVertical: 9,
+      paddingVertical: SPACING.sm + 1,
     },
     error: {
       color: p.danger,
-      fontSize: 13,
-      marginBottom: 8,
+      fontSize: FONT.label,
+      lineHeight: LINE_HEIGHT.label,
+      marginBottom: SPACING.sm,
     },
     buttonRow: {
       flexDirection: 'row',
-      gap: 10,
-      marginTop: 8,
+      gap: SPACING.md - 2,
+      marginTop: SPACING.sm,
     },
     button: {
       flex: 1,
       backgroundColor: p.accent,
-      borderRadius: 10,
+      borderRadius: RADII.md,
       alignItems: 'center',
-      paddingVertical: 11,
+      paddingVertical: SPACING.md - 1,
     },
     cancelButton: {
       backgroundColor: p.border,
     },
     buttonText: {
       color: p.onAccent,
-      fontSize: 15,
+      fontSize: FONT.bodyLg,
+      lineHeight: LINE_HEIGHT.bodyLg,
       fontWeight: '600',
     },
   });

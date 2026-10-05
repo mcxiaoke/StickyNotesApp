@@ -17,11 +17,12 @@ import { NoteCard } from '../components/NoteCard';
 import { AppMenu, type MenuAction } from '../components/AppMenu';
 import { SyncDot } from '../components/SyncDot';
 import { cardShadow, type ShellPalette } from '../constants/theme';
-import { useShellPalette } from '../hooks/use-shell';
+import { SPACING, RADII, FONT, LINE_HEIGHT, TOUCH_TARGET, APPBAR_HEIGHT, FAB_SIZE } from '../constants/metrics';
 import type { Note } from '../data/note';
 import { filterNotes } from '../services/search';
 import { notesStore } from '../stores/notesStore';
 import { syncStore } from '../stores/syncStore';
+import { useShellPalette } from '../hooks/use-shell';
 
 type FilterMode = 'all' | 'pinned';
 
@@ -84,8 +85,8 @@ export default function NotesListScreen() {
       {/* 顶部导航栏 */}
       <View style={styles.header}>
         <View style={styles.headerLeft}>
-          <View style={styles.logo}>
-            <Text style={styles.logoText}>S</Text>
+          <View style={[styles.logo, { backgroundColor: p.accentContainer }]}>
+            <Text style={[styles.logoText, { color: p.onAccentContainer }]}>S</Text>
           </View>
           <Text style={styles.headerTitle}>便签</Text>
         </View>
@@ -187,21 +188,26 @@ function Chip({
       onPress={onPress}
       style={[
         chipStyles.chip,
-        { backgroundColor: active ? p.accent : p.surface, borderColor: active ? p.accent : p.border },
+        {
+          backgroundColor: active ? p.accentContainer : p.surface,
+          borderColor: active ? p.accentContainer : p.border,
+        },
       ]}
     >
-      <Text style={{ color: active ? p.onAccent : p.text, fontSize: 13 }}>{label}</Text>
+      <Text style={{ color: active ? p.onAccentContainer : p.text, fontSize: FONT.label }}>
+        {label}
+      </Text>
     </Pressable>
   );
 }
 
 const chipStyles = StyleSheet.create({
   chip: {
-    borderRadius: 16,
+    borderRadius: RADII.xl,
     borderWidth: StyleSheet.hairlineWidth,
-    paddingHorizontal: 14,
-    paddingVertical: 6,
-    marginRight: 8,
+    paddingHorizontal: SPACING.lg - 2,
+    paddingVertical: SPACING.sm - 2,
+    marginRight: SPACING.sm,
   },
 });
 
@@ -215,91 +221,90 @@ const makeStyles = (p: ShellPalette) =>
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'space-between',
-      paddingHorizontal: 8,
-      // 与 Stack AppBar（56dp）保持统一高度
-      height: 56,
+      paddingHorizontal: SPACING.sm,
+      height: APPBAR_HEIGHT,
     },
     headerLeft: {
       flexDirection: 'row',
       alignItems: 'center',
-      paddingLeft: 8,
+      paddingLeft: SPACING.sm,
     },
     logo: {
       width: 28,
       height: 28,
-      borderRadius: 7,
-      backgroundColor: '#FFEE9D',
+      borderRadius: RADII.sm,
       alignItems: 'center',
       justifyContent: 'center',
-      marginRight: 8,
+      marginRight: SPACING.sm,
     },
     logoText: {
-      color: '#6C6546',
       fontWeight: '900',
-      fontSize: 15,
+      fontSize: FONT.bodyLg,
     },
     headerTitle: {
       color: p.text,
-      fontSize: 20,
+      fontSize: FONT.headline,
       fontWeight: '700',
+      lineHeight: LINE_HEIGHT.headline,
     },
     headerActions: {
       flexDirection: 'row',
       alignItems: 'center',
-      gap: 4,
+      gap: SPACING.xs,
     },
     headerSlot: {
-      width: 40,
-      height: 40,
-      borderRadius: 20,
+      width: TOUCH_TARGET,
+      height: TOUCH_TARGET,
+      borderRadius: TOUCH_TARGET / 2,
       alignItems: 'center',
       justifyContent: 'center',
     },
     headerSlotPressed: {
-      backgroundColor: p.border,
+      backgroundColor: p.surfaceHigh,
     },
     searchWrap: {
-      paddingHorizontal: 16,
-      paddingBottom: 8,
+      paddingHorizontal: SPACING.lg,
+      paddingBottom: SPACING.sm,
     },
     searchInput: {
       backgroundColor: p.surface,
       borderColor: p.border,
       borderWidth: StyleSheet.hairlineWidth,
-      borderRadius: 12,
-      paddingHorizontal: 14,
-      paddingVertical: 9,
+      borderRadius: RADII.md,
+      paddingHorizontal: SPACING.lg - 2,
+      paddingVertical: SPACING.sm,
       color: p.text,
-      fontSize: 15,
+      fontSize: FONT.bodyLg,
     },
     chipsRow: {
       flexDirection: 'row',
-      paddingHorizontal: 16,
-      paddingBottom: 10,
+      paddingHorizontal: SPACING.lg,
+      paddingBottom: SPACING.md - 2,
     },
     listContent: {
-      paddingHorizontal: 16,
-      paddingBottom: 96,
+      paddingHorizontal: SPACING.lg,
+      paddingBottom: SPACING.listBottom,
     },
     empty: {
       alignItems: 'center',
-      paddingTop: 80,
+      paddingTop: SPACING.emptyTop,
     },
     emptyIcon: {
       fontSize: 44,
-      marginBottom: 12,
+      marginBottom: SPACING.md,
     },
     emptyText: {
       color: p.secondaryText,
-      fontSize: 14,
+      fontSize: FONT.body,
+      lineHeight: LINE_HEIGHT.body,
     },
     fab: {
       position: 'absolute',
-      right: 20,
-      bottom: 28,
-      width: 56,
-      height: 56,
-      borderRadius: 16,
+      right: SPACING.xl - 4,
+      bottom: SPACING.xxl - 4,
+      width: FAB_SIZE,
+      height: FAB_SIZE,
+      borderRadius: RADII.lg,
       backgroundColor: p.accent,
       alignItems: 'center',
       justifyContent: 'center',

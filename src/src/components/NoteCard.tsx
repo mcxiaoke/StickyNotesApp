@@ -1,4 +1,4 @@
-// 便签卡片：7 色主题作用于卡片本身，标题加粗提取 + 预览 + 置顶图钉 + 更多菜单 + 左滑归档
+// 便签卡片：7 色主题作用于卡片本身（用户自选色，与桌面端一致），标题加粗提取 + 预览 + 置顶图钉 + 更多菜单 + 左滑归档
 import { memo } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import ReanimatedSwipeable from 'react-native-gesture-handler/ReanimatedSwipeable';
@@ -7,6 +7,8 @@ import type { Note } from '../data/note';
 import { NOTE_COLOR_THEMES, displayTitle, previewText } from '../data/theme';
 import { highlightSegments, type SearchSegment } from '../services/search';
 import { relativeTime } from '../services/time';
+import { useShellPalette } from '../hooks/use-shell';
+import { SPACING, RADII, FONT, LINE_HEIGHT } from '../constants/metrics';
 
 export interface NoteCardProps {
   note: Note;
@@ -18,12 +20,15 @@ export interface NoteCardProps {
 
 export const NoteCard = memo(function NoteCard({ note, query, onPress, onMenu, onSwipeArchive }: NoteCardProps) {
   const theme = NOTE_COLOR_THEMES[note.color];
+  const p = useShellPalette();
   const searchQuery = query.trim();
 
   const body = searchQuery ? highlightSegments(previewText(note.content), searchQuery) : null;
   const title: SearchSegment[] = searchQuery
     ? highlightSegments(displayTitle(note.content), searchQuery)
     : [{ text: displayTitle(note.content), hit: false }];
+
+  const hitStyle = { backgroundColor: p.accentContainer, color: p.onAccentContainer };
 
   const card = (
     <Pressable
@@ -33,7 +38,7 @@ export const NoteCard = memo(function NoteCard({ note, query, onPress, onMenu, o
       <View style={styles.titleRow}>
         <Text numberOfLines={1} style={[styles.title, { color: theme.text }]} ellipsizeMode="tail">
           {title.map((seg, i) => (
-            <Text key={i} style={seg.hit ? styles.hit : null}>
+            <Text key={i} style={seg.hit ? hitStyle : null}>
               {seg.text}
             </Text>
           ))}
@@ -50,7 +55,7 @@ export const NoteCard = memo(function NoteCard({ note, query, onPress, onMenu, o
       <Text numberOfLines={4} style={[styles.preview, { color: theme.secondary }]}>
         {body
           ? body.map((seg, i) => (
-              <Text key={i} style={seg.hit ? styles.hit : null}>
+              <Text key={i} style={seg.hit ? hitStyle : null}>
                 {seg.text}
               </Text>
             ))
@@ -71,8 +76,11 @@ export const NoteCard = memo(function NoteCard({ note, query, onPress, onMenu, o
       rightThreshold={40}
       overshootRight={false}
       renderRightActions={() => (
-        <Pressable style={styles.swipeAction} onPress={() => onSwipeArchive(note)}>
-          <Text style={styles.swipeActionText}>归档</Text>
+        <Pressable
+          style={[styles.swipeAction, { backgroundColor: p.danger }]}
+          onPress={() => onSwipeArchive(note)}
+        >
+          <Text style={[styles.swipeActionText, { color: p.onError }]}>归档</Text>
         </Pressable>
       )}
     >
@@ -83,14 +91,14 @@ export const NoteCard = memo(function NoteCard({ note, query, onPress, onMenu, o
 
 const styles = StyleSheet.create({
   swipeContainer: {
-    marginBottom: 8,
-    marginHorizontal: 4,
+    marginBottom: SPACING.sm,
+    marginHorizontal: SPACING.xs,
   },
   card: {
-    borderRadius: 10,
+    borderRadius: RADII.md,
     borderWidth: StyleSheet.hairlineWidth,
-    paddingVertical: 10,
-    paddingHorizontal: 12,
+    paddingVertical: SPACING.md - 2,
+    paddingHorizontal: SPACING.md,
   },
   pressed: {
     opacity: 0.85,
@@ -101,47 +109,44 @@ const styles = StyleSheet.create({
   },
   title: {
     flex: 1,
-    fontSize: 15,
+    fontSize: FONT.bodyLg,
+    lineHeight: LINE_HEIGHT.bodyLg,
     fontWeight: '700',
   },
   titleActions: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginLeft: 6,
+    marginLeft: SPACING.xs + 2,
   },
   pin: {
-    fontSize: 12,
-    marginRight: 4,
+    fontSize: FONT.caption + 1,
+    marginRight: SPACING.xs,
   },
   preview: {
-    fontSize: 13,
-    lineHeight: 19,
-    marginTop: 4,
-    marginBottom: 8,
-  },
-  hit: {
-    backgroundColor: '#FFE27A',
-    color: '#202020',
+    fontSize: FONT.label,
+    lineHeight: LINE_HEIGHT.label + 1,
+    marginTop: SPACING.xs,
+    marginBottom: SPACING.sm,
   },
   footer: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     borderTopWidth: StyleSheet.hairlineWidth,
-    paddingTop: 6,
+    paddingTop: SPACING.xs + 2,
   },
   footerText: {
-    fontSize: 11,
+    fontSize: FONT.caption,
+    lineHeight: LINE_HEIGHT.caption,
   },
   swipeAction: {
     width: 72,
-    marginLeft: 8,
-    borderRadius: 10,
-    backgroundColor: '#D64541',
+    marginLeft: SPACING.sm,
+    borderRadius: RADII.md,
     alignItems: 'center',
     justifyContent: 'center',
   },
   swipeActionText: {
-    color: '#FFFFFF',
-    fontSize: 14,
+    fontSize: FONT.body,
+    lineHeight: LINE_HEIGHT.body,
   },
 });

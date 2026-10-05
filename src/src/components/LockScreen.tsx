@@ -7,6 +7,7 @@ import { lockStore } from '../stores/lockStore';
 import { PIN_MAX_LENGTH, PIN_MIN_LENGTH } from '../services/pin';
 import type { ShellPalette } from '../constants/theme';
 import { useShellPalette } from '../hooks/use-shell';
+import { SPACING, RADII, FONT, LINE_HEIGHT } from '../constants/metrics';
 
 export function LockScreen() {
   const p = useShellPalette();
@@ -101,28 +102,31 @@ const makeStyles = (p: ShellPalette) =>
       flex: 1,
       alignItems: 'center',
       justifyContent: 'center',
-      padding: 32,
+      padding: SPACING.xxl,
     },
     title: {
       color: p.text,
-      fontSize: 20,
+      fontSize: FONT.headline,
+      lineHeight: LINE_HEIGHT.headline,
       fontWeight: '700',
-      marginTop: 16,
+      marginTop: SPACING.lg,
     },
     subtitle: {
       color: p.secondaryText,
-      fontSize: 14,
-      marginTop: 6,
-      marginBottom: 24,
+      fontSize: FONT.body,
+      lineHeight: LINE_HEIGHT.body,
+      marginTop: SPACING.xs + 2,
+      marginBottom: SPACING.xl,
     },
     pinInput: {
       width: 160,
       borderWidth: 1,
       borderColor: p.border,
-      borderRadius: 10,
+      borderRadius: RADII.md,
       backgroundColor: p.surface,
       color: p.text,
-      fontSize: 22,
+      fontSize: FONT.display,
+      lineHeight: LINE_HEIGHT.display,
       letterSpacing: 10,
       textAlign: 'center',
       paddingVertical: 10,
@@ -132,32 +136,35 @@ const makeStyles = (p: ShellPalette) =>
     },
     error: {
       color: p.danger,
-      fontSize: 13,
-      marginTop: 10,
+      fontSize: FONT.label,
+      lineHeight: LINE_HEIGHT.label,
+      marginTop: SPACING.md - 2,
     },
     button: {
       backgroundColor: p.accent,
-      borderRadius: 10,
+      borderRadius: RADII.md,
       alignItems: 'center',
-      paddingHorizontal: 40,
-      paddingVertical: 12,
-      marginTop: 20,
+      paddingHorizontal: SPACING.xxl + 8,
+      paddingVertical: SPACING.md,
+      marginTop: SPACING.xl - 4,
     },
     buttonText: {
       color: p.onAccent,
-      fontSize: 15,
+      fontSize: FONT.bodyLg,
+      lineHeight: LINE_HEIGHT.bodyLg,
       fontWeight: '600',
     },
     biometricButton: {
       flexDirection: 'row',
       alignItems: 'center',
-      gap: 6,
-      marginTop: 24,
-      paddingVertical: 8,
-      paddingHorizontal: 12,
+      gap: SPACING.xs + 2,
+      marginTop: SPACING.xl,
+      paddingVertical: SPACING.sm,
+      paddingHorizontal: SPACING.md,
     },
     biometricText: {
       color: p.accent,
-      fontSize: 14,
+      fontSize: FONT.body,
+      lineHeight: LINE_HEIGHT.body,
     },
   });

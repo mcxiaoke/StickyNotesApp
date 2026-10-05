@@ -2,6 +2,7 @@
 import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 import type { ShellPalette } from '../constants/theme';
 import { useShellPalette } from '../hooks/use-shell';
+import { SPACING, RADII, FONT, LINE_HEIGHT } from '../constants/metrics';
 
 export interface MenuAction {
   key: string;
@@ -57,41 +58,44 @@ const makeStyles = (p: ShellPalette) =>
   StyleSheet.create({
     overlay: {
       flex: 1,
-      backgroundColor: '#00000066',
+      backgroundColor: p.scrim,
       justifyContent: 'flex-end',
     },
     sheet: {
       backgroundColor: p.surface,
-      borderTopLeftRadius: 20,
-      borderTopRightRadius: 20,
-      paddingBottom: 24,
-      paddingHorizontal: 8,
-      paddingTop: 8,
+      borderTopLeftRadius: RADII.xl,
+      borderTopRightRadius: RADII.xl,
+      paddingBottom: SPACING.xxl,
+      paddingHorizontal: SPACING.sm,
+      paddingTop: SPACING.sm,
     },
     title: {
       color: p.secondaryText,
-      fontSize: 13,
-      paddingHorizontal: 16,
-      paddingVertical: 8,
+      fontSize: FONT.label,
+      lineHeight: LINE_HEIGHT.label,
+      paddingHorizontal: SPACING.lg,
+      paddingVertical: SPACING.sm,
     },
     item: {
-      borderRadius: 12,
-      paddingHorizontal: 16,
-      paddingVertical: 14,
+      borderRadius: RADII.lg,
+      paddingHorizontal: SPACING.lg,
+      paddingVertical: SPACING.lg - 2,
     },
     itemPressed: {
-      backgroundColor: p.border,
+      backgroundColor: p.surfaceHigh,
     },
     itemText: {
       color: p.text,
-      fontSize: 16,
+      fontSize: FONT.bodyLg,
+      lineHeight: LINE_HEIGHT.bodyLg,
     },
     itemDestructive: {
       color: p.danger,
     },
     cancelText: {
       color: p.secondaryText,
-      fontSize: 16,
+      fontSize: FONT.bodyLg,
+      lineHeight: LINE_HEIGHT.bodyLg,
       textAlign: 'center',
     },
   });

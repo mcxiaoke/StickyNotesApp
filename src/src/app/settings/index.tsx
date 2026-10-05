@@ -10,6 +10,7 @@ import { FONT_SIZES, FONT_SIZE_LABELS, AUTO_LOCK_OPTIONS, settingsStore, type Fo
 import { NOTE_COLOR_THEMES } from '../../data/theme';
 import type { ShellPalette } from '../../constants/theme';
 import { useShellPalette } from '../../hooks/use-shell';
+import { SPACING, RADII, FONT, LINE_HEIGHT } from '../../constants/metrics';
 import { getDeviceId } from '../../services/deviceId';
 import { logger } from '../../services/logger';
 import { getLastCrash, clearLastCrash } from '../../services/crash';
@@ -193,7 +194,7 @@ export default function SettingsScreen() {
             <>
               <View style={styles.aboutRow}>
                 <Text style={styles.aboutLabel}>PIN 锁</Text>
-                <Text style={[styles.aboutValue, { color: '#209E35' }]}>已启用</Text>
+                <Text style={[styles.aboutValue, { color: p.accent }]}>已启用</Text>
               </View>
               <View style={styles.aboutRow}>
                 <Text style={styles.aboutLabel}>生物识别解锁</Text>
@@ -332,58 +333,61 @@ const makeStyles = (p: ShellPalette) =>
       backgroundColor: p.background,
     },
     content: {
-      padding: 16,
-      paddingBottom: 40,
+      padding: SPACING.lg,
+      paddingBottom: SPACING.xxxl,
     },
     sectionTitle: {
       color: p.secondaryText,
-      fontSize: 13,
+      fontSize: FONT.label,
+      lineHeight: LINE_HEIGHT.label,
       fontWeight: '600',
-      marginBottom: 8,
-      marginTop: 16,
+      marginBottom: SPACING.sm,
+      marginTop: SPACING.lg,
       textTransform: 'uppercase',
     },
     card: {
       backgroundColor: p.surface,
-      borderRadius: 12,
-      padding: 14,
+      borderRadius: RADII.md,
+      padding: SPACING.lg - 2,
     },
     rowLabel: {
       color: p.text,
-      fontSize: 15,
+      fontSize: FONT.bodyLg,
+      lineHeight: LINE_HEIGHT.bodyLg,
       fontWeight: '600',
-      marginBottom: 8,
+      marginBottom: SPACING.sm,
     },
     optionRow: {
       flexDirection: 'row',
       flexWrap: 'wrap',
-      gap: 8,
-      marginBottom: 12,
+      gap: SPACING.sm,
+      marginBottom: SPACING.md,
     },
     option: {
-      borderRadius: 8,
+      borderRadius: RADII.sm,
       borderWidth: StyleSheet.hairlineWidth,
       borderColor: p.border,
-      paddingHorizontal: 12,
-      paddingVertical: 7,
+      paddingHorizontal: SPACING.md,
+      paddingVertical: SPACING.sm - 1,
     },
     optionActive: {
-      backgroundColor: p.accent,
-      borderColor: p.accent,
+      backgroundColor: p.accentContainer,
+      borderColor: p.accentContainer,
     },
     optionText: {
       color: p.text,
-      fontSize: 13,
+      fontSize: FONT.label,
+      lineHeight: LINE_HEIGHT.label,
     },
     optionTextActive: {
-      color: p.onAccent,
+      color: p.onAccentContainer,
       fontWeight: '600',
     },
     previewCard: {
-      borderRadius: 10,
+      borderRadius: RADII.md,
       borderWidth: StyleSheet.hairlineWidth,
-      padding: 12,
-      marginTop: 4,
+      padding: SPACING.md,
+      marginTop: SPACING.xs,
     },
     entryRow: {
       flexDirection: 'row',
@@ -391,88 +395,94 @@ const makeStyles = (p: ShellPalette) =>
     },
     entryText: {
       color: p.text,
-      fontSize: 15,
+      fontSize: FONT.bodyLg,
+      lineHeight: LINE_HEIGHT.bodyLg,
       flex: 1,
     },
     entryArrow: {
       color: p.secondaryText,
-      fontSize: 20,
+      fontSize: FONT.headline,
     },
     aboutRow: {
       flexDirection: 'row',
       justifyContent: 'space-between',
-      paddingVertical: 6,
+      paddingVertical: SPACING.xs + 2,
     },
     aboutLabel: {
       color: p.secondaryText,
-      fontSize: 14,
+      fontSize: FONT.body,
+      lineHeight: LINE_HEIGHT.body,
     },
     aboutValue: {
       color: p.text,
-      fontSize: 14,
+      fontSize: FONT.body,
+      lineHeight: LINE_HEIGHT.body,
       fontWeight: '500',
     },
     aboutNote: {
       color: p.secondaryText,
-      fontSize: 12,
-      marginTop: 8,
-      lineHeight: 18,
+      fontSize: FONT.small,
+      lineHeight: LINE_HEIGHT.small,
+      marginTop: SPACING.sm,
     },
     crashBox: {
-      marginTop: 10,
+      marginTop: SPACING.md - 2,
       backgroundColor: p.background,
-      borderRadius: 8,
-      padding: 10,
+      borderRadius: RADII.sm,
+      padding: SPACING.md - 2,
     },
     crashTitle: {
       color: p.danger,
-      fontSize: 13,
+      fontSize: FONT.label,
+      lineHeight: LINE_HEIGHT.label,
       fontWeight: '600',
-      marginBottom: 4,
+      marginBottom: SPACING.xs,
     },
     crashText: {
       color: p.secondaryText,
       fontFamily: 'monospace',
-      fontSize: 11,
+      fontSize: FONT.caption,
       lineHeight: 15,
     },
     logButtonRow: {
       flexDirection: 'row',
-      gap: 8,
-      marginTop: 10,
+      gap: SPACING.sm,
+      marginTop: SPACING.md - 2,
     },
     logButton: {
       flex: 1,
       backgroundColor: p.accent,
-      borderRadius: 8,
+      borderRadius: RADII.sm,
       alignItems: 'center',
-      paddingVertical: 9,
+      paddingVertical: SPACING.sm + 1,
     },
     logButtonDanger: {
       backgroundColor: p.border,
     },
+    // 复制成功态：柔和容器底 + 容器前景（语义色，不再用固定绿色）
     logButtonCopied: {
-      backgroundColor: '#209E35',
+      backgroundColor: p.accentContainer,
     },
     logButtonSecondary: {
       backgroundColor: p.border,
     },
-    // 琥珀色底：深字保证对比度
     logButtonText: {
       color: p.onAccent,
-      fontSize: 13,
+      fontSize: FONT.label,
+      lineHeight: LINE_HEIGHT.label,
       fontWeight: '600',
     },
-    // 绿色底（复制成功态）：白字
     logButtonTextSuccess: {
-      color: '#FFFFFF',
-      fontSize: 13,
+      color: p.onAccentContainer,
+      fontSize: FONT.label,
+      lineHeight: LINE_HEIGHT.label,
       fontWeight: '600',
     },
     // 灰色底（次级动作）：跟随主题文字色
     logButtonTextMuted: {
       color: p.text,
-      fontSize: 13,
+      fontSize: FONT.label,
+      lineHeight: LINE_HEIGHT.label,
       fontWeight: '600',
     },
   });

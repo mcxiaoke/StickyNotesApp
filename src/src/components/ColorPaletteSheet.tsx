@@ -2,6 +2,7 @@
 import { Modal, Pressable, StyleSheet, View } from 'react-native';
 import { NOTE_COLORS, NOTE_COLOR_THEMES, type NoteColor } from '../data/theme';
 import { useShellPalette } from '../hooks/use-shell';
+import { SPACING, RADII } from '../constants/metrics';
 
 export function ColorPaletteSheet({
   visible,
@@ -17,7 +18,7 @@ export function ColorPaletteSheet({
   const p = useShellPalette();
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
-      <View style={styles.overlay}>
+      <View style={[styles.overlay, { backgroundColor: p.scrim }]}>
         <Pressable style={StyleSheet.absoluteFill} onPress={onClose} />
         <View style={[styles.sheet, { backgroundColor: p.surface }]}>
           <View style={styles.row}>
@@ -35,7 +36,7 @@ export function ColorPaletteSheet({
                   hitSlop={6}
                 >
                   {selected ? (
-                    <View style={[styles.checkMark, { backgroundColor: theme.accent }]} />
+                    <View style={[styles.innerDot, { backgroundColor: theme.accent }]} />
                   ) : (
                     <View style={[styles.innerDot, { backgroundColor: theme.toolbar }]} />
                   )}
@@ -52,16 +53,15 @@ export function ColorPaletteSheet({
 const styles = StyleSheet.create({
   overlay: {
     flex: 1,
-    backgroundColor: '#00000066',
     justifyContent: 'flex-end',
   },
-    sheet: {
-      borderTopLeftRadius: 20,
-      borderTopRightRadius: 20,
-      paddingBottom: 32,
-      paddingTop: 20,
-      paddingHorizontal: 12,
-    },
+  sheet: {
+    borderTopLeftRadius: RADII.xl,
+    borderTopRightRadius: RADII.xl,
+    paddingBottom: SPACING.xxl + 8,
+    paddingTop: SPACING.xl - 4,
+    paddingHorizontal: SPACING.md,
+  },
   row: {
     flexDirection: 'row',
     justifyContent: 'space-evenly',
@@ -76,11 +76,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   innerDot: {
-    width: 16,
-    height: 16,
-    borderRadius: 8,
-  },
-  checkMark: {
     width: 16,
     height: 16,
     borderRadius: 8,

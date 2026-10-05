@@ -1,21 +1,28 @@
-// 同步状态指示点：绿=已同步，转圈=同步中，红=异常，灰=未启用
-// 状态色与主题语义色保持一致（green accent / danger）
+// 同步状态指示点：主色=已同步，转圈=同步中，红=异常，灰=未启用
 import { ActivityIndicator, StyleSheet, View } from 'react-native';
 import type { SyncStatus } from '../stores/syncStore';
+import { useShellPalette } from '../hooks/use-shell';
+import type { ShellPalette } from '../constants/theme';
 
-const COLOR_BY_STATUS: Record<SyncStatus, string> = {
-  disabled: '#A0A0A6',
-  idle: '#A0A0A6',
-  success: '#209E35',
-  error: '#D64541',
-  syncing: '#1079D1',
-};
+function colorFor(status: SyncStatus, p: ShellPalette): string {
+  switch (status) {
+    case 'success':
+    case 'syncing':
+      return p.accent;
+    case 'error':
+      return p.danger;
+    default:
+      return p.secondaryText;
+  }
+}
 
 export function SyncDot({ status }: { status: SyncStatus }) {
+  const p = useShellPalette();
+  const color = colorFor(status, p);
   if (status === 'syncing') {
-    return <ActivityIndicator size={14} color={COLOR_BY_STATUS.syncing} />;
+    return <ActivityIndicator size={14} color={color} />;
   }
-  return <View style={[styles.dot, { backgroundColor: COLOR_BY_STATUS[status] }]} />;
+  return <View style={[styles.dot, { backgroundColor: color }]} />;
 }
 
 const styles = StyleSheet.create({
