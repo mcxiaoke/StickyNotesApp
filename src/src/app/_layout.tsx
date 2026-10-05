@@ -12,6 +12,7 @@ import { syncStore } from '../stores/syncStore';
 import { crashStore } from '../stores/crashStore';
 import { performSyncRound } from '../sync/syncRunner';
 import { applyBackgroundSyncSchedule } from '../sync/scheduler';
+import { runDailyBackupIfDueAsync } from '../services/dbBackup';
 import { installGlobalErrorHandlers } from '../services/crash';
 import { logger } from '../services/logger';
 import { AppErrorBoundary } from '../components/AppErrorBoundary';
@@ -33,6 +34,10 @@ export default function RootLayout() {
       syncStore.getState().hydrate();
       await notesStore.getState().refreshAsync();
       await applyBackgroundSyncSchedule();
+      // 每日一次的本地冷备份（同步之外的最后防线），失败不影响主流程
+      void runDailyBackupIfDueAsync().catch((ex) =>
+        logger.warn('backup', `daily backup failed: ${ex instanceof Error ? ex.message : String(ex)}`),
+      );
     })();
 
     // 切前台 2 秒后自动对账一轮（捕获电脑端编辑后的下行数据）

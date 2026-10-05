@@ -1,5 +1,13 @@
-// 导出/导入纯逻辑单测：格式包装、桌面端 JSON 字段兼容、无效条目统计
-import { buildExportPayload, parseImportPayload, EXPORT_FORMAT, type ImportNote } from '../src/services/backupData';
+// 导出/导入纯逻辑单测：格式包装、桌面端 JSON 字段兼容、无效条目统计、备份命名与保留策略
+import {
+  buildExportPayload,
+  parseImportPayload,
+  EXPORT_FORMAT,
+  backupFileName,
+  localDateString,
+  pickPruneNames,
+  type ImportNote,
+} from '../src/services/backupData';
 import type { Note } from '../src/data/note';
 
 const BASE_NOTE: Note = {
@@ -106,5 +114,22 @@ describe('parseImportPayload', () => {
   it('throws on non-JSON text and wrong payload shape', () => {
     expect(() => parseImportPayload('not json')).toThrow();
     expect(() => parseImportPayload('{"foo": 1}')).toThrow();
+  });
+});
+
+describe('daily backup helpers', () => {
+  it('formats local date and backup file name', () => {
+    expect(localDateString(new Date(2026, 9, 5, 8, 30))).toBe('2026-10-05');
+    expect(backupFileName('2026-10-05')).toBe('notes-20261005.db');
+  });
+
+  it('keeps newest backups and prunes older ones', () => {
+    const names = ['notes-20261001.db', 'notes-20261005.db', 'notes-20261003.db', 'notes-20261004.db'];
+    expect(pickPruneNames(names, 2)).toEqual(['notes-20261003.db', 'notes-20261001.db']);
+  });
+
+  it('prunes nothing when under the keep limit', () => {
+    expect(pickPruneNames(['notes-20261001.db'], 7)).toEqual([]);
+    expect(pickPruneNames([], 7)).toEqual([]);
   });
 });

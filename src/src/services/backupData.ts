@@ -6,6 +6,28 @@ import { noteColorFromString } from '../data/theme';
 export const EXPORT_FORMAT = 'stickynotes-notes';
 export const EXPORT_VERSION = 1;
 
+// ---- 本地 SQLite 每日备份（纯命名/挑选逻辑，供 dbBackup 使用） ----
+
+export const BACKUP_KEEP = 7;
+export const BACKUP_FILE_PREFIX = 'notes-';
+
+/** 本地时区 YYYY-MM-DD */
+export function localDateString(d: Date = new Date()): string {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+
+export function backupFileName(dateStr: string): string {
+  return `${BACKUP_FILE_PREFIX}${dateStr.slice(0, 10).replace(/-/g, '')}.db`;
+}
+
+/** 按文件名（YYYYMMDD 字典序即时间序）倒序保留 keep 份，返回应删除名单 */
+export function pickPruneNames(names: string[], keep: number = BACKUP_KEEP): string[] {
+  return [...names].sort().reverse().slice(Math.max(keep, 0));
+}
+
 export interface ImportNote {
   id: string;
   content: string;

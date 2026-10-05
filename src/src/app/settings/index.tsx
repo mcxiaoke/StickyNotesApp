@@ -14,6 +14,7 @@ import { getDeviceId } from '../../services/deviceId';
 import { logger } from '../../services/logger';
 import { getLastCrash, clearLastCrash } from '../../services/crash';
 import { exportNotesAsync, importNotesAsync } from '../../services/backup';
+import { getLastBackupDate } from '../../services/dbBackup';
 
 const THEME_OPTIONS: { key: ThemeMode; label: string }[] = [
   { key: 'system', label: '跟随系统' },
@@ -33,6 +34,7 @@ export default function SettingsScreen() {
   // 仅用于在清空/复制日志后触发本组件重渲染以刷新条数显示
   const [, setLogTick] = useState(0);
   const [dataBusy, setDataBusy] = useState(false);
+  const [lastBackupDate] = useState(() => getLastBackupDate());
 
   const onExport = async () => {
     setDataBusy(true);
@@ -138,6 +140,9 @@ export default function SettingsScreen() {
         <View style={styles.card}>
           <Text style={styles.aboutNote}>
             导出全部便签（含归档）为 JSON 文件备份或迁移到其他设备；导入按便签 ID 去重，不会覆盖已有数据。
+          </Text>
+          <Text style={styles.aboutNote}>
+            本地每日自动备份保留最近 7 份{lastBackupDate ? `，最近一次：${lastBackupDate}` : '，尚未备份'}。
           </Text>
           <View style={styles.logButtonRow}>
             <Pressable style={styles.logButton} disabled={dataBusy} onPress={() => void onExport()}>
