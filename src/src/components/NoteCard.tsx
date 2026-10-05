@@ -2,7 +2,7 @@
 import { memo } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import ReanimatedSwipeable from 'react-native-gesture-handler/ReanimatedSwipeable';
-import { Ionicons } from '@expo/vector-icons';
+import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import type { Note } from '../data/note';
 import { getNoteColorTheme, displayTitle, previewText } from '../data/theme';
 import { highlightSegments, type SearchSegment } from '../services/search';
@@ -46,7 +46,7 @@ export const NoteCard = memo(function NoteCard({ note, query, onPress, onMenu, o
         </Text>
         <View style={styles.titleActions}>
           {note.isPinnedInList ? (
-            <Ionicons name="pin" size={15} color={theme.accent} style={styles.pin} />
+            <MaterialCommunityIcons name="pin" size={16} color={theme.accent} style={styles.pin} />
           ) : null}
           <Pressable hitSlop={10} onPress={() => onMenu(note)}>
             <Ionicons name="ellipsis-horizontal" size={18} color={theme.secondary} />

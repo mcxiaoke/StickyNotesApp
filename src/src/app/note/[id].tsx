@@ -1,18 +1,20 @@
 // 便签编辑页：无干扰编辑 + 7 色即时切换 + 置顶/归档 + 500ms 防抖保存 + 进入后台刷盘
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   AppState,
+  Keyboard,
   KeyboardAvoidingView,
   Platform,
   Pressable,
+  ScrollView,
   StyleSheet,
   Text,
   TextInput,
   View,
 } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
-import { Ionicons } from '@expo/vector-icons';
+import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AppMenu, type MenuAction } from '../../components/AppMenu';
@@ -35,6 +37,9 @@ export default function NoteEditorScreen() {
   const [draft, setDraft] = useState<string | null>(null);
   const [paletteVisible, setPaletteVisible] = useState(false);
   const [menuVisible, setMenuVisible] = useState(false);
+  const [isEditing, setIsEditing] = useState(id === 'new' || (note ? note.content === '' : false));
+
+  const inputRef = useRef<TextInput>(null);
 
   const content = draft ?? note?.content ?? '';
   const dark = useScheme() === 'dark';
@@ -47,6 +52,23 @@ export default function NoteEditorScreen() {
       }),
     [],
   );
+
+  // 键盘收起时自动切回只读/浏览模式，防止后续滑动误触
+  useEffect(() => {
+    const sub = Keyboard.addListener('keyboardDidHide', () => {
+      setIsEditing(false);
+    });
+    return () => sub.remove();
+  }, []);
+
+  const startEditing = () => {
+    if (!isEditing) {
+      setIsEditing(true);
+      setTimeout(() => {
+        inputRef.current?.focus();
+      }, 50);
+    }
+  };
 
   // 新建分支：/note/new 进入即创建空便签并替换路由为真实 id
   useEffect(() => {
@@ -124,43 +146,84 @@ export default function NoteEditorScreen() {
       <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         {/* 顶部窄工具栏（高度与 Stack AppBar 统一） */}
         <View style={[styles.toolbar, { backgroundColor: theme.toolbar, borderBottomColor: theme.border }]}>
-          <Pressable style={styles.toolbarSlot} onPress={handleBack}>
+          <Pressable style={styles.toolbarSlot} onPress={handleBack} hitSlop={6} accessibilityLabel="返回">
             <Ionicons name="chevron-back" size={22} color={theme.text} />
           </Pressable>
           <View style={styles.toolbarRight}>
+            {/* 置顶切换：斜向经典按钉（置顶实心，未置顶线框） */}
             <Pressable
               style={styles.toolbarSlot}
               onPress={() => void notesStore.getState().togglePinAsync(note.id)}
+              hitSlop={6}
+              accessibilityLabel={note.isPinnedInList ? '取消置顶' : '置顶'}
             >
-              <Ionicons
-                name="pin"
+              <MaterialCommunityIcons
+                name={note.isPinnedInList ? 'pin' : 'pin-outline'}
                 size={22}
                 color={note.isPinnedInList ? theme.text : theme.secondary}
               />
             </Pressable>
-            <Pressable style={styles.toolbarSlot} onPress={() => setPaletteVisible(true)}>
+            {/* 调色盘：顶部 PopMenu */}
+            <Pressable
+              style={styles.toolbarSlot}
+              onPress={() => setPaletteVisible(true)}
+              hitSlop={6}
+              accessibilityLabel="选择便签色彩"
+            >
               <Ionicons name="color-palette-outline" size={22} color={theme.text} />
             </Pressable>
-            <Pressable style={styles.toolbarSlot} onPress={() => setMenuVisible(true)}>
+            {/* 编辑中显示完成对勾按钮 */}
+            {isEditing ? (
+              <Pressable
+                style={styles.toolbarSlot}
+                onPress={() => {
+                  Keyboard.dismiss();
+                  setIsEditing(false);
+                }}
+                hitSlop={6}
+                accessibilityLabel="完成编辑"
+              >
+                <Ionicons name="checkmark" size={24} color={theme.text} />
+              </Pressable>
+            ) : null}
+            <Pressable
+              style={styles.toolbarSlot}
+              onPress={() => setMenuVisible(true)}
+              hitSlop={6}
+              accessibilityLabel="更多选项"
+            >
               <Ionicons name="ellipsis-horizontal" size={22} color={theme.text} />
             </Pressable>
           </View>
         </View>
 
-        {/* 全屏编辑区 */}
-        <TextInput
-          style={[styles.editor, { color: theme.text, fontSize }]}
-          multiline
-          value={content}
-          placeholder="记录点什么..."
-          placeholderTextColor={theme.secondary}
-          onChangeText={(text) => {
-            setDraft(text);
-            autoSave.schedule(note.id, text);
-          }}
-          textAlignVertical="top"
-          autoFocus={note.content === ''}
-        />
+        {/* 内容滚动与编辑区（阅读/编辑手势解耦：滑动自由浏览，轻触激活编辑，拖拽收起键盘） */}
+        <ScrollView
+          style={styles.flex}
+          contentContainerStyle={styles.scrollContent}
+          keyboardDismissMode="on-drag"
+          keyboardShouldPersistTaps="handled"
+        >
+          <Pressable style={styles.editorPressable} onPress={startEditing}>
+            <TextInput
+              ref={inputRef}
+              style={[styles.editor, { color: theme.text, fontSize }]}
+              multiline
+              value={content}
+              placeholder="记录点什么..."
+              placeholderTextColor={theme.secondary}
+              onChangeText={(text) => {
+                setDraft(text);
+                autoSave.schedule(note.id, text);
+              }}
+              textAlignVertical="top"
+              autoFocus={note.content === ''}
+              editable={isEditing}
+              pointerEvents={isEditing ? 'auto' : 'none'}
+              scrollEnabled={false}
+            />
+          </Pressable>
+        </ScrollView>
 
         {/* 底部状态栏 */}
         <View style={[styles.statusBar, { borderTopColor: theme.border }]}>
@@ -212,9 +275,17 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
   },
+  scrollContent: {
+    flexGrow: 1,
+  },
+  editorPressable: {
+    flex: 1,
+    minHeight: '100%',
+  },
   editor: {
     flex: 1,
     padding: SPACING.lg,
+    minHeight: 200,
   },
   statusBar: {
     flexDirection: 'row',

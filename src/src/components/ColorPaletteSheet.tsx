@@ -1,10 +1,13 @@
-// 7 色主题选择面板（底部弹出，圆形色块 + 选中对勾），浅色值与桌面端一致，暗色用 Keep 风格变体
-import { Modal, Pressable, StyleSheet, View } from 'react-native';
+// 便签主题颜色选择浮层菜单（顶部弹出，右上角悬浮卡片，多行大色块 + 选中对勾）
+// 浅色值与桌面端一致，暗色用 Keep 风格变体，设计对齐桌面端 PopMenu
+import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { NOTE_COLORS, getNoteColorTheme, type NoteColor } from '../data/theme';
 import { useShellPalette, useScheme } from '../hooks/use-shell';
-import { SPACING, RADII } from '../constants/metrics';
+import { SPACING, RADII, FONT, LINE_HEIGHT, APPBAR_HEIGHT } from '../constants/metrics';
 
-export function ColorPaletteSheet({
+export function ColorPaletteMenu({
   visible,
   current,
   onSelect,
@@ -17,12 +20,27 @@ export function ColorPaletteSheet({
 }) {
   const p = useShellPalette();
   const dark = useScheme() === 'dark';
+  const insets = useSafeAreaInsets();
+
   return (
-    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
-      <View style={[styles.overlay, { backgroundColor: p.scrim }]}>
+    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
+      <View style={styles.overlay}>
+        {/* 背景透明遮罩：点击空白区域收起 */}
         <Pressable style={StyleSheet.absoluteFill} onPress={onClose} />
-        <View style={[styles.sheet, { backgroundColor: p.surface }]}>
-          <View style={styles.row}>
+
+        {/* 顶部悬浮卡片菜单：紧贴 AppBar 下方右上角 */}
+        <View
+          style={[
+            styles.menuCard,
+            {
+              backgroundColor: p.surface,
+              borderColor: p.border,
+              top: insets.top + APPBAR_HEIGHT + SPACING.xs,
+            },
+          ]}
+        >
+          <Text style={[styles.menuTitle, { color: p.secondaryText }]}>便签主题色彩</Text>
+          <View style={styles.paletteGrid}>
             {NOTE_COLORS.map((color) => {
               const theme = getNoteColorTheme(color, dark);
               const selected = color === current;
@@ -33,14 +51,21 @@ export function ColorPaletteSheet({
                     onSelect(color);
                     onClose();
                   }}
-                  style={[styles.circle, { backgroundColor: theme.background, borderColor: theme.border }]}
-                  hitSlop={6}
+                  style={({ pressed }) => [
+                    styles.colorCircle,
+                    {
+                      backgroundColor: theme.background,
+                      borderColor: selected ? theme.accent : theme.border,
+                    },
+                    pressed && styles.colorCirclePressed,
+                  ]}
+                  hitSlop={4}
+                  accessibilityRole="button"
+                  accessibilityLabel={`便签颜色: ${color}`}
                 >
                   {selected ? (
-                    <View style={[styles.innerDot, { backgroundColor: theme.accent }]} />
-                  ) : (
-                    <View style={[styles.innerDot, { backgroundColor: theme.toolbar }]} />
-                  )}
+                    <Ionicons name="checkmark" size={22} color={theme.text} />
+                  ) : null}
                 </Pressable>
               );
             })}
@@ -51,34 +76,51 @@ export function ColorPaletteSheet({
   );
 }
 
+// 保留 ColorPaletteSheet 别名，确保向前兼容
+export const ColorPaletteSheet = ColorPaletteMenu;
+
 const styles = StyleSheet.create({
   overlay: {
     flex: 1,
-    justifyContent: 'flex-end',
+    backgroundColor: 'rgba(0, 0, 0, 0.25)',
   },
-  sheet: {
-    borderTopLeftRadius: RADII.xl,
-    borderTopRightRadius: RADII.xl,
-    paddingBottom: SPACING.xxl + 8,
-    paddingTop: SPACING.xl - 4,
+  menuCard: {
+    position: 'absolute',
+    right: SPACING.md,
+    borderRadius: RADII.lg,
+    borderWidth: StyleSheet.hairlineWidth,
     paddingHorizontal: SPACING.md,
+    paddingTop: SPACING.md - 2,
+    paddingBottom: SPACING.md,
+    minWidth: 236,
+    maxWidth: 260,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.18,
+    shadowRadius: 10,
+    elevation: 8,
   },
-  row: {
+  menuTitle: {
+    fontSize: FONT.label,
+    lineHeight: LINE_HEIGHT.label,
+    fontWeight: '600',
+    marginBottom: SPACING.xs + 2,
+  },
+  paletteGrid: {
     flexDirection: 'row',
-    justifyContent: 'space-evenly',
-    alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: SPACING.md,
   },
-  circle: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+  colorCircle: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     borderWidth: 2,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  innerDot: {
-    width: 16,
-    height: 16,
-    borderRadius: 8,
+  colorCirclePressed: {
+    opacity: 0.8,
+    transform: [{ scale: 0.95 }],
   },
 });
