@@ -7,6 +7,7 @@ import { StatusBar } from 'expo-status-bar';
 
 import { LIGHT_SHELL, DARK_SHELL } from '../constants/theme';
 import { settingsStore, resolveScheme } from '../stores/settingsStore';
+import { lockStore } from '../stores/lockStore';
 import { notesStore } from '../stores/notesStore';
 import { syncStore } from '../stores/syncStore';
 import { crashStore } from '../stores/crashStore';
@@ -17,6 +18,7 @@ import { installGlobalErrorHandlers } from '../services/crash';
 import { logger } from '../services/logger';
 import { AppErrorBoundary } from '../components/AppErrorBoundary';
 import { CrashScreen } from '../components/CrashScreen';
+import { LockScreen } from '../components/LockScreen';
 
 // 全局错误钩子必须在首次渲染前安装
 installGlobalErrorHandlers();
@@ -32,6 +34,7 @@ export default function RootLayout() {
     void (async () => {
       settingsStore.getState().hydrate();
       syncStore.getState().hydrate();
+      await lockStore.getState().hydrate();
       await notesStore.getState().refreshAsync();
       await applyBackgroundSyncSchedule();
       // 每日一次的本地冷备份（同步之外的最后防线），失败不影响主流程
@@ -65,6 +68,19 @@ export default function RootLayout() {
         report={fatalError}
         onReset={() => crashStore.getState().dismissFatal()}
       />
+    );
+  }
+
+  // 应用锁：锁存水合完成前保持空屏，锁定期间不渲染任何业务内容
+  const lockHydrated = lockStore((s) => s.hydrated);
+  const locked = lockStore((s) => s.locked);
+  if (!lockHydrated) return null;
+  if (locked) {
+    return (
+      <AppErrorBoundary>
+        <StatusBar style={scheme === 'dark' ? 'light' : 'dark'} />
+        <LockScreen />
+      </AppErrorBoundary>
     );
   }
 

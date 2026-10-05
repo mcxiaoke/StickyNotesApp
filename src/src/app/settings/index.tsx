@@ -1,6 +1,6 @@
 // 设置页：外观与显示（主题/字号带预览卡片）、网络同步入口、诊断日志、关于应用
 import { useState } from 'react';
-import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Alert, Pressable, ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Constants from 'expo-constants';
@@ -15,6 +15,9 @@ import { logger } from '../../services/logger';
 import { getLastCrash, clearLastCrash } from '../../services/crash';
 import { exportNotesAsync, importNotesAsync } from '../../services/backup';
 import { getLastBackupDate } from '../../services/dbBackup';
+import { verifyPinAsync } from '../../services/pin';
+import { lockStore } from '../../stores/lockStore';
+import { PinSetupModal, type PinModalMode } from '../../components/PinSetupModal';
 
 const THEME_OPTIONS: { key: ThemeMode; label: string }[] = [
   { key: 'system', label: '跟随系统' },
@@ -35,6 +38,30 @@ export default function SettingsScreen() {
   const [, setLogTick] = useState(0);
   const [dataBusy, setDataBusy] = useState(false);
   const [lastBackupDate] = useState(() => getLastBackupDate());
+
+  const pinEnabled = lockStore((s) => s.pinEnabled);
+  const biometricEnabled = lockStore((s) => s.biometricEnabled);
+  const biometricAvailable = lockStore((s) => s.biometricAvailable);
+  const [pinModal, setPinModal] = useState<PinModalMode | null>(null);
+
+  const onPinModalSubmit = async (values: Record<string, string>): Promise<string | null> => {
+    const mode = pinModal;
+    if (mode === 'enable') {
+      await lockStore.getState().enablePinAsync(values.pin);
+      return null;
+    }
+    if (mode === 'change') {
+      const ok = await verifyPinAsync(values.current);
+      if (!ok) return '当前 PIN 不正确';
+      await lockStore.getState().enablePinAsync(values.pin);
+      return null;
+    }
+    // disable
+    const ok = await verifyPinAsync(values.current);
+    if (!ok) return '当前 PIN 不正确';
+    await lockStore.getState().clearPinAsync();
+    return null;
+  };
 
   const onExport = async () => {
     setDataBusy(true);
@@ -158,6 +185,53 @@ export default function SettingsScreen() {
           </View>
         </View>
 
+        {/* 隐私保护 */}
+        <Text style={styles.sectionTitle}>隐私保护</Text>
+        <View style={styles.card}>
+          {pinEnabled ? (
+            <>
+              <View style={styles.aboutRow}>
+                <Text style={styles.aboutLabel}>PIN 锁</Text>
+                <Text style={[styles.aboutValue, { color: '#209E35' }]}>已启用</Text>
+              </View>
+              <View style={styles.aboutRow}>
+                <Text style={styles.aboutLabel}>生物识别解锁</Text>
+                {biometricAvailable ? (
+                  <Switch
+                    value={biometricEnabled}
+                    onValueChange={(v) => void lockStore.getState().setBiometricAsync(v)}
+                  />
+                ) : (
+                  <Text style={styles.aboutLabel}>设备不支持或未录入</Text>
+                )}
+              </View>
+              <Text style={styles.aboutNote}>启用后每次打开应用都需解锁；清除 PIN 需验证当前 PIN。</Text>
+              <View style={styles.logButtonRow}>
+                <Pressable style={styles.logButton} onPress={() => setPinModal('change')}>
+                  <Text style={styles.logButtonText}>修改 PIN</Text>
+                </Pressable>
+                <Pressable
+                  style={[styles.logButton, styles.logButtonDanger]}
+                  onPress={() => setPinModal('disable')}
+                >
+                  <Text style={styles.logButtonText}>清除 PIN</Text>
+                </Pressable>
+              </View>
+            </>
+          ) : (
+            <>
+              <Text style={styles.aboutNote}>
+                启用 PIN 锁后，每次打开应用都需要输入 PIN 或通过生物识别解锁，保护你的便签隐私。
+              </Text>
+              <View style={styles.logButtonRow}>
+                <Pressable style={styles.logButton} onPress={() => setPinModal('enable')}>
+                  <Text style={styles.logButtonText}>启用 PIN 锁</Text>
+                </Pressable>
+              </View>
+            </>
+          )}
+        </View>
+
         {/* 诊断日志 */}
         <Text style={styles.sectionTitle}>诊断日志</Text>
         <View style={styles.card}>
@@ -219,6 +293,13 @@ export default function SettingsScreen() {
             <Text style={styles.aboutValue}>{getDeviceId()}</Text>
           </View>
         </View>
+        <PinSetupModal
+          key={pinModal ?? 'pin-modal'}
+          visible={pinModal !== null}
+          mode={pinModal ?? 'enable'}
+          onClose={() => setPinModal(null)}
+          onSubmit={onPinModalSubmit}
+        />
       </ScrollView>
     </SafeAreaView>
   );
