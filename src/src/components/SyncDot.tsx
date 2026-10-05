@@ -1,12 +1,13 @@
 // 同步状态指示点：绿=已同步，转圈=同步中，红=异常，灰=未启用
+// 状态色与主题语义色保持一致（green accent / danger）
 import { ActivityIndicator, StyleSheet, View } from 'react-native';
 import type { SyncStatus } from '../stores/syncStore';
 
 const COLOR_BY_STATUS: Record<SyncStatus, string> = {
   disabled: '#A0A0A6',
   idle: '#A0A0A6',
-  success: '#34A853',
-  error: '#E0443E',
+  success: '#209E35',
+  error: '#D64541',
   syncing: '#1079D1',
 };
 

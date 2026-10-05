@@ -268,10 +268,10 @@ export default function SyncSettingsScreen() {
         <View style={styles.card}>
           <View style={styles.buttonRow}>
             <Pressable style={[styles.button, testing && styles.buttonDisabled]} onPress={() => void handleTest()} disabled={testing}>
-              {testing ? <ActivityIndicator size="small" color="#FFFFFF" /> : <Text style={styles.buttonText}>测试连接</Text>}
+              {testing ? <ActivityIndicator size="small" color={p.onAccent} /> : <Text style={styles.buttonText}>测试连接</Text>}
             </Pressable>
             <Pressable style={[styles.button, syncing && styles.buttonDisabled]} onPress={() => void handleSyncNow()} disabled={syncing}>
-              {syncing ? <ActivityIndicator size="small" color="#FFFFFF" /> : <Text style={styles.buttonText}>立即同步</Text>}
+              {syncing ? <ActivityIndicator size="small" color={p.onAccent} /> : <Text style={styles.buttonText}>立即同步</Text>}
             </Pressable>
           </View>
           {testResult ? (
@@ -430,7 +430,7 @@ const makeStyles = (p: ShellPalette) =>
       fontSize: 13,
     },
     optionTextActive: {
-      color: '#FFFFFF',
+      color: p.onAccent,
       fontWeight: '600',
     },
     statusText: {
@@ -439,7 +439,7 @@ const makeStyles = (p: ShellPalette) =>
       marginTop: 2,
     },
     warningText: {
-      color: '#B8860B',
+      color: p.warning,
       fontSize: 12,
       marginTop: 2,
     },
@@ -474,7 +474,7 @@ const makeStyles = (p: ShellPalette) =>
       marginTop: 10,
     },
     buttonText: {
-      color: '#FFFFFF',
+      color: p.onAccent,
       fontSize: 15,
       fontWeight: '600',
     },

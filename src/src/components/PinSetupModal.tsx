@@ -156,7 +156,7 @@ const makeStyles = (p: ShellPalette) =>
       backgroundColor: p.border,
     },
     buttonText: {
-      color: '#FFFFFF',
+      color: p.onAccent,
       fontSize: 15,
       fontWeight: '600',
     },

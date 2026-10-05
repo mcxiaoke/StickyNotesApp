@@ -111,7 +111,7 @@ const makeStyles = (p: ShellPalette) =>
     },
     pinInput: {
       width: 160,
-      borderWidth: StyleSheet.hairlineWidth,
+      borderWidth: 1,
       borderColor: p.border,
       borderRadius: 10,
       backgroundColor: p.surface,
@@ -138,7 +138,7 @@ const makeStyles = (p: ShellPalette) =>
       marginTop: 20,
     },
     buttonText: {
-      color: '#FFFFFF',
+      color: p.onAccent,
       fontSize: 15,
       fontWeight: '600',
     },

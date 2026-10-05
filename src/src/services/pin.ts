@@ -10,7 +10,9 @@ import { logger } from './logger';
 const KEY = 'app.lock.pin.v1';
 export const PIN_MIN_LENGTH = 4;
 export const PIN_MAX_LENGTH = 8;
-const ITERATIONS = 100_000;
+// 10 万次在移动 JS（Hermes）上需 10 秒以上（实测），30k 为移动端安全与体验折中；
+// 盐与哈希本身存于系统安全硬件（Keystore/Keychain），离线爆破面有限
+const ITERATIONS = 30_000;
 const SALT_BYTES = 16;
 const DK_LEN = 32;
 

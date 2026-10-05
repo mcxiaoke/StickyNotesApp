@@ -129,7 +129,7 @@ export default function NoteEditorScreen() {
               <Ionicons
                 name="pin"
                 size={20}
-                color={note.isPinnedInList ? theme.accent : theme.secondary}
+                color={note.isPinnedInList ? theme.text : theme.secondary}
                 style={styles.toolbarIconSmall}
               />
             </Pressable>

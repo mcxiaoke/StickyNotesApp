@@ -8,6 +8,10 @@ export interface ShellPalette {
   secondaryText: string;
   border: string;
   accent: string;
+  /** 琥珀色 accent 底上的前景色（白字对比不足，统一用深字） */
+  onAccent: string;
+  /** 警告文字色（浅色下用深琥珀保证对比度） */
+  warning: string;
   danger: string;
 }
 
@@ -18,6 +22,8 @@ export const LIGHT_SHELL: ShellPalette = {
   secondaryText: '#6C6C70',
   border: '#E3E3E8',
   accent: '#E0A800',
+  onAccent: '#1C1C1E',
+  warning: '#8A6D00',
   danger: '#D64541',
 };
 
@@ -28,6 +34,8 @@ export const DARK_SHELL: ShellPalette = {
   secondaryText: '#A0A0A6',
   border: '#33333A',
   accent: '#E0A800',
+  onAccent: '#111114',
+  warning: '#E3B341',
   danger: '#E5635F',
 };
 

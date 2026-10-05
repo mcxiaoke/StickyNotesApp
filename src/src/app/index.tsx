@@ -150,7 +150,7 @@ export default function NotesListScreen() {
         style={({ pressed }) => [styles.fab, cardShadow(6), pressed && styles.fabPressed]}
         onPress={() => router.push('/note/new')}
       >
-        <Ionicons name="add" size={30} color="#FFFFFF" />
+        <Ionicons name="add" size={30} color={p.onAccent} />
       </Pressable>
 
       <AppMenu
@@ -182,7 +182,7 @@ function Chip({
         { backgroundColor: active ? p.accent : p.surface, borderColor: active ? p.accent : p.border },
       ]}
     >
-      <Text style={{ color: active ? '#FFFFFF' : p.text, fontSize: 13 }}>{label}</Text>
+      <Text style={{ color: active ? p.onAccent : p.text, fontSize: 13 }}>{label}</Text>
     </Pressable>
   );
 }

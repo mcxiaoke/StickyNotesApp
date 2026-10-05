@@ -181,7 +181,7 @@ export default function SettingsScreen() {
               disabled={dataBusy}
               onPress={() => void onImport()}
             >
-              <Text style={styles.logButtonText}>导入数据</Text>
+              <Text style={styles.logButtonTextMuted}>导入数据</Text>
             </Pressable>
           </View>
         </View>
@@ -234,7 +234,7 @@ export default function SettingsScreen() {
                   style={[styles.logButton, styles.logButtonDanger]}
                   onPress={() => setPinModal('disable')}
                 >
-                  <Text style={styles.logButtonText}>清除 PIN</Text>
+                  <Text style={styles.logButtonTextMuted}>清除 PIN</Text>
                 </Pressable>
               </View>
             </>
@@ -275,7 +275,7 @@ export default function SettingsScreen() {
                     setLastCrash(null);
                   }}
                 >
-                  <Text style={styles.logButtonText}>清除</Text>
+                  <Text style={styles.logButtonTextMuted}>清除</Text>
                 </Pressable>
               </View>
             </View>
@@ -285,7 +285,7 @@ export default function SettingsScreen() {
               style={[styles.logButton, logCopied && styles.logButtonCopied]}
               onPress={() => void copyLogs()}
             >
-              <Text style={styles.logButtonText}>
+              <Text style={[styles.logButtonText, logCopied && styles.logButtonTextSuccess]}>
                 {logCopied ? '已复制' : `复制日志（${logger.count()} 条）`}
               </Text>
             </Pressable>
@@ -296,7 +296,7 @@ export default function SettingsScreen() {
                 setLogTick((t) => t + 1);
               }}
             >
-              <Text style={styles.logButtonText}>清空日志</Text>
+              <Text style={styles.logButtonTextMuted}>清空日志</Text>
             </Pressable>
           </View>
         </View>
@@ -376,7 +376,7 @@ const makeStyles = (p: ShellPalette) =>
       fontSize: 13,
     },
     optionTextActive: {
-      color: '#FFFFFF',
+      color: p.onAccent,
       fontWeight: '600',
     },
     previewCard: {
@@ -455,10 +455,23 @@ const makeStyles = (p: ShellPalette) =>
       backgroundColor: '#209E35',
     },
     logButtonSecondary: {
-      backgroundColor: p.secondaryText,
+      backgroundColor: p.border,
     },
+    // 琥珀色底：深字保证对比度
     logButtonText: {
+      color: p.onAccent,
+      fontSize: 13,
+      fontWeight: '600',
+    },
+    // 绿色底（复制成功态）：白字
+    logButtonTextSuccess: {
       color: '#FFFFFF',
+      fontSize: 13,
+      fontWeight: '600',
+    },
+    // 灰色底（次级动作）：跟随主题文字色
+    logButtonTextMuted: {
+      color: p.text,
       fontSize: 13,
       fontWeight: '600',
     },
