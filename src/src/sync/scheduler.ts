@@ -2,6 +2,7 @@
 // Android 底层为 WorkManager，15 分钟为法定最小周期。
 import * as BackgroundTask from 'expo-background-task';
 import * as TaskManager from 'expo-task-manager';
+import Constants from 'expo-constants';
 import { Platform } from 'react-native';
 import { loadSyncSettings } from './settings';
 import { performSyncRound } from './syncRunner';
@@ -21,6 +22,8 @@ TaskManager.defineTask(BACKGROUND_SYNC_TASK, async () => {
 /** 按设置注册或注销后台周期任务（保存同步设置后调用） */
 export async function applyBackgroundSyncSchedule(): Promise<void> {
   if (Platform.OS === 'web') return;
+  // Expo Go 不含后台任务原生模块（需 development build），跳过注册避免警告
+  if (Constants.appOwnership === 'expo') return;
   const settings = loadSyncSettings();
   if (!settings.enabled) {
     if (await TaskManager.isTaskRegisteredAsync(BACKGROUND_SYNC_TASK)) {

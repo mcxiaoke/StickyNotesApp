@@ -2,6 +2,7 @@
 import { memo } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import ReanimatedSwipeable from 'react-native-gesture-handler/ReanimatedSwipeable';
+import { Ionicons } from '@expo/vector-icons';
 import type { Note } from '../data/note';
 import { NOTE_COLOR_THEMES, displayTitle, previewText } from '../data/theme';
 import { highlightSegments, type SearchSegment } from '../services/search';
@@ -39,10 +40,10 @@ export const NoteCard = memo(function NoteCard({ note, query, onPress, onMenu, o
         </Text>
         <View style={styles.titleActions}>
           {note.isPinnedInList ? (
-            <Text style={styles.pin}>📌</Text>
+            <Ionicons name="pin" size={15} color={theme.accent} style={styles.pin} />
           ) : null}
           <Pressable hitSlop={10} onPress={() => onMenu(note)}>
-            <Text style={[styles.more, { color: theme.secondary }]}>⋯</Text>
+            <Ionicons name="ellipsis-horizontal" size={18} color={theme.secondary} />
           </Pressable>
         </View>
       </View>
@@ -83,6 +84,7 @@ export const NoteCard = memo(function NoteCard({ note, query, onPress, onMenu, o
 const styles = StyleSheet.create({
   swipeContainer: {
     marginBottom: 8,
+    marginHorizontal: 4,
   },
   card: {
     borderRadius: 10,
@@ -110,11 +112,6 @@ const styles = StyleSheet.create({
   pin: {
     fontSize: 12,
     marginRight: 4,
-  },
-  more: {
-    fontSize: 20,
-    fontWeight: '700',
-    paddingHorizontal: 4,
   },
   preview: {
     fontSize: 13,

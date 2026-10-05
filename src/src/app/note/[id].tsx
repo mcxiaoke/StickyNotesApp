@@ -12,6 +12,7 @@ import {
   View,
 } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
+import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AppMenu, type MenuAction } from '../../components/AppMenu';
@@ -121,17 +122,22 @@ export default function NoteEditorScreen() {
         {/* 顶部极窄工具栏 */}
         <View style={[styles.toolbar, { backgroundColor: theme.toolbar, borderBottomColor: theme.border }]}>
           <Pressable hitSlop={10} onPress={handleBack}>
-            <Text style={[styles.toolbarIcon, { color: theme.text }]}>‹</Text>
+            <Ionicons name="chevron-back" size={26} color={theme.text} />
           </Pressable>
           <View style={styles.toolbarRight}>
             <Pressable hitSlop={8} onPress={() => void notesStore.getState().togglePinAsync(note.id)}>
-              <Text style={[styles.toolbarIconSmall, { opacity: note.isPinnedInList ? 1 : 0.5 }]}>📌</Text>
+              <Ionicons
+                name="pin"
+                size={20}
+                color={note.isPinnedInList ? theme.accent : theme.secondary}
+                style={styles.toolbarIconSmall}
+              />
             </Pressable>
             <Pressable hitSlop={8} onPress={() => setPaletteVisible(true)}>
-              <Text style={styles.toolbarIconSmall}>🎨</Text>
+              <Ionicons name="color-palette-outline" size={20} color={theme.text} style={styles.toolbarIconSmall} />
             </Pressable>
             <Pressable hitSlop={8} onPress={() => setMenuVisible(true)}>
-              <Text style={[styles.toolbarIcon, { color: theme.text, fontSize: 20 }]}>⋯</Text>
+              <Ionicons name="ellipsis-horizontal" size={20} color={theme.text} />
             </Pressable>
           </View>
         </View>
@@ -189,12 +195,7 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
     borderBottomWidth: StyleSheet.hairlineWidth,
   },
-  toolbarIcon: {
-    fontSize: 26,
-    fontWeight: '600',
-  },
   toolbarIconSmall: {
-    fontSize: 18,
     marginLeft: 14,
   },
   toolbarRight: {

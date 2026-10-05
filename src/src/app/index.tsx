@@ -12,6 +12,7 @@ import {
 import { useRouter } from 'expo-router';
 import { FlashList } from '@shopify/flash-list';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { Ionicons } from '@expo/vector-icons';
 
 import { NoteCard } from '../components/NoteCard';
 import { AppMenu, type MenuAction } from '../components/AppMenu';
@@ -92,10 +93,10 @@ export default function NotesListScreen() {
         <View style={styles.headerActions}>
           <SyncDot status={syncStatus} />
           <Pressable hitSlop={8} onPress={() => router.push('/archive')}>
-            <Text style={styles.headerIcon}>🗄️</Text>
+            <Ionicons name="archive-outline" size={23} color={p.text} />
           </Pressable>
           <Pressable hitSlop={8} onPress={() => router.push('/settings')}>
-            <Text style={styles.headerIcon}>⚙️</Text>
+            <Ionicons name="settings-outline" size={22} color={p.text} />
           </Pressable>
         </View>
       </View>
@@ -150,7 +151,7 @@ export default function NotesListScreen() {
         style={({ pressed }) => [styles.fab, cardShadow(6), pressed && styles.fabPressed]}
         onPress={() => router.push('/note/new')}
       >
-        <Text style={styles.fabText}>＋</Text>
+        <Ionicons name="add" size={30} color="#FFFFFF" />
       </Pressable>
 
       <AppMenu
@@ -238,9 +239,6 @@ const makeStyles = (p: ShellPalette) =>
       alignItems: 'center',
       gap: 14,
     },
-    headerIcon: {
-      fontSize: 20,
-    },
     searchWrap: {
       paddingHorizontal: 16,
       paddingBottom: 8,
@@ -289,11 +287,5 @@ const makeStyles = (p: ShellPalette) =>
     },
     fabPressed: {
       opacity: 0.85,
-    },
-    fabText: {
-      color: '#FFFFFF',
-      fontSize: 28,
-      fontWeight: '600',
-      marginTop: -2,
     },
   });
