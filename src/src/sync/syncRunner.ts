@@ -20,7 +20,7 @@ export interface SyncStats {
 }
 
 export type SyncStateListener = (event: {
-  type: 'success' | 'error';
+  type: 'start' | 'end' | 'success' | 'error';
   at?: string;
   summary?: SyncRoundSummary;
   stats?: SyncStats;
@@ -34,7 +34,26 @@ export function setSyncStateListener(fn: SyncStateListener | null): void {
   listener = fn;
 }
 
-export async function performSyncRound(trigger: string): Promise<SyncRoundSummary | null> {
+/**
+ * 模块级单飞：SyncEngine 的互斥是实例字段，而每轮都会 new 一个实例，因此它挡不住并发。
+ * 真正的互斥放在这里——并发调用不再各自起一轮，而是合并到正在跑的那一轮（返回同一个 Promise），
+ * 既消除重复全量对账/重复 PUT，也让调用方能拿到真实结果而不是 null。
+ */
+let inFlight: Promise<SyncRoundSummary | null> | null = null;
+
+export function performSyncRound(trigger: string): Promise<SyncRoundSummary | null> {
+  if (inFlight) {
+    logger.info('sync', `round(${trigger}) coalesced into in-flight round`);
+    return inFlight;
+  }
+  const round = runRoundAsync(trigger).finally(() => {
+    inFlight = null;
+  });
+  inFlight = round;
+  return round;
+}
+
+async function runRoundAsync(trigger: string): Promise<SyncRoundSummary | null> {
   const settings = loadSyncSettings();
   if (!settings.enabled) return null;
 
@@ -42,6 +61,8 @@ export async function performSyncRound(trigger: string): Promise<SyncRoundSummar
   if (!backend) return null;
 
   const engine = new SyncEngine();
+  // 仅在确认本轮会真正执行后才广播 start，避免「未启用/配置不完整」提前返回时让 UI 卡在同步中
+  listener?.({ type: 'start' });
   try {
     const summary = await engine.runAsync(backend, getDeviceId(), {
       enableEncryption: settings.enableEncryption,
@@ -71,6 +92,7 @@ export async function performSyncRound(trigger: string): Promise<SyncRoundSummar
     logger.error('sync', `round(${trigger}) failed: ${message}`);
     throw ex;
   } finally {
+    listener?.({ type: 'end' });
     backend.dispose();
   }
 }

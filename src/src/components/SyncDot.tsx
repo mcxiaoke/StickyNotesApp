@@ -16,13 +16,13 @@ function colorFor(status: SyncStatus, p: ShellPalette): string {
   }
 }
 
-export function SyncDot({ status }: { status: SyncStatus }) {
+export function SyncDot({ status, inFlight }: { status: SyncStatus; inFlight: boolean }) {
   const p = useShellPalette();
-  const color = colorFor(status, p);
-  if (status === 'syncing') {
-    return <ActivityIndicator size={14} color={color} />;
+  // 转圈只看 inFlight：它由同步轮次的事件驱动，与触发入口无关（防抖/前台/后台/手动都会亮）
+  if (inFlight) {
+    return <ActivityIndicator size={14} color={p.accent} />;
   }
-  return <View style={[styles.dot, { backgroundColor: color }]} />;
+  return <View style={[styles.dot, { backgroundColor: colorFor(status, p) }]} />;
 }
 
 const styles = StyleSheet.create({

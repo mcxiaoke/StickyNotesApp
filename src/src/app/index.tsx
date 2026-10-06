@@ -36,6 +36,7 @@ export default function NotesListScreen() {
   const archiveAsync = notesStore((s) => s.archiveAsync);
   const togglePinAsync = notesStore((s) => s.togglePinAsync);
   const syncStatus = syncStore((s) => s.status);
+  const syncInFlight = syncStore((s) => s.inFlight);
 
   const [query, setQuery] = useState('');
   const [filter, setFilter] = useState<FilterMode>('all');
@@ -92,7 +93,7 @@ export default function NotesListScreen() {
         </View>
         <View style={styles.headerActions}>
           <View style={styles.headerSlot}>
-            <SyncDot status={syncStatus} />
+            <SyncDot status={syncStatus} inFlight={syncInFlight} />
           </View>
           <Pressable
             style={({ pressed }) => [styles.headerSlot, pressed && styles.headerSlotPressed]}
