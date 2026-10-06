@@ -95,6 +95,8 @@ export default function NoteEditorScreen() {
     };
   }, [autoSave]);
 
+  // 「放弃更改」已移除：500ms 防抖早已把内容落库，该操作既不回滚也不清除，语义名不副实。
+  // 返回键本就是「保存并退出」，统一语义后菜单只保留归档。
   const menuActions: MenuAction[] = useMemo(
     () => [
       {
@@ -106,23 +108,22 @@ export default function NoteEditorScreen() {
           void notesStore.getState().archiveAsync(id).then(() => router.back());
         },
       },
-      {
-        key: 'discard',
-        label: '放弃更改',
-        onPress: () => {
-          setDraft(null);
-          router.back();
-        },
-      },
     ],
-    [id, router, setDraft],
+    [id, router],
   );
 
   const handleBack = () => {
+    if (!note) {
+      router.back();
+      return;
+    }
+    const noteId = note.id;
     void autoSave.flush().then(() => {
+      // flush 已把 draft 落库，因此以 store 里的最新值判定，避免渲染闭包读到过期内容
+      const latest = notesStore.getState().notes.find((n) => n.id === noteId);
       // 空便签返回即丢弃（本地删除，不再进入同步流）
-      if (note && note.content === '' && (draft ?? '') === '') {
-        void notesStore.getState().purgeAsync(note.id);
+      if (latest && latest.content === '') {
+        void notesStore.getState().purgeAsync(noteId);
       }
       router.back();
     });
@@ -197,33 +198,44 @@ export default function NoteEditorScreen() {
           </View>
         </View>
 
-        {/* 内容滚动与编辑区（阅读/编辑手势解耦：滑动自由浏览，轻触激活编辑，拖拽收起键盘） */}
-        <ScrollView
-          style={styles.flex}
-          contentContainerStyle={styles.scrollContent}
-          keyboardDismissMode="on-drag"
-          keyboardShouldPersistTaps="handled"
-        >
-          <Pressable style={styles.editorPressable} onPress={startEditing}>
-            <TextInput
-              ref={inputRef}
-              style={[styles.editor, { color: theme.text, fontSize }]}
-              multiline
-              value={content}
-              placeholder="记录点什么..."
-              placeholderTextColor={theme.secondary}
-              onChangeText={(text) => {
-                setDraft(text);
-                autoSave.schedule(note.id, text);
-              }}
-              textAlignVertical="top"
-              autoFocus={note.content === ''}
-              editable={isEditing}
-              pointerEvents={isEditing ? 'auto' : 'none'}
-              scrollEnabled={false}
-            />
-          </Pressable>
-        </ScrollView>
+        {/* 内容区：只读态走外层 ScrollView（Text 随内容撑开，天然可滚动），
+            编辑态以 TextInput 自身为滚动主体（其默认 scrollEnabled，长便签内部滚动）。
+            二者不可合并：一旦给 TextInput 加 flex 高度约束又禁用自身滚动，长便签就彻底滚不动。 */}
+        {isEditing ? (
+          <TextInput
+            ref={inputRef}
+            style={[styles.editor, { color: theme.text, fontSize }]}
+            multiline
+            value={content}
+            placeholder="记录点什么..."
+            placeholderTextColor={theme.secondary}
+            onChangeText={(text) => {
+              setDraft(text);
+              autoSave.schedule(note.id, text);
+            }}
+            textAlignVertical="top"
+            autoFocus={note.content === ''}
+          />
+        ) : (
+          <ScrollView
+            style={styles.flex}
+            contentContainerStyle={styles.readContent}
+            keyboardDismissMode="on-drag"
+            keyboardShouldPersistTaps="handled"
+          >
+            <Pressable style={styles.readPressable} onPress={startEditing}>
+              <Text
+                style={{
+                  color: content ? theme.text : theme.secondary,
+                  fontSize,
+                  lineHeight: Math.round((fontSize * LINE_HEIGHT.body) / FONT.body),
+                }}
+              >
+                {content || '记录点什么...'}
+              </Text>
+            </Pressable>
+          </ScrollView>
+        )}
 
         {/* 底部状态栏 */}
         <View style={[styles.statusBar, { borderTopColor: theme.border }]}>
@@ -275,12 +287,12 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
   },
-  scrollContent: {
+  readContent: {
     flexGrow: 1,
   },
-  editorPressable: {
-    flex: 1,
-    minHeight: '100%',
+  readPressable: {
+    flexGrow: 1,
+    padding: SPACING.lg,
   },
   editor: {
     flex: 1,
