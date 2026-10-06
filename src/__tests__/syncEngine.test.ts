@@ -6,6 +6,9 @@ import type { INoteRepository, RemoteApplyItem } from '../src/data/noteRepositor
 
 // 隔离 data 层，避免测试触及 expo-sqlite
 jest.mock('../src/data/noteRepository', () => ({ noteRepository: {} }));
+jest.mock('../src/data/hardDeleteLedger', () => ({
+  hardDeleteLedger: { loadAsync: async () => new Map<string, string>() },
+}));
 
 const DEVICE_A = 'android-testaaa';
 const DEVICE_B = 'android-testbbb';

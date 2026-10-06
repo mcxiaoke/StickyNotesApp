@@ -25,6 +25,9 @@ import { getEffectiveWebDavUrl } from '../src/sync/protocol';
 import type { INoteRepository, RemoteApplyItem } from '../src/data/noteRepository';
 
 jest.mock('../src/data/noteRepository', () => ({ noteRepository: {} }));
+jest.mock('../src/data/hardDeleteLedger', () => ({
+  hardDeleteLedger: { loadAsync: async () => new Map<string, string>() },
+}));
 
 const BASE_URL = process.env.WEBDAV_E2E_URL;
 const USERNAME = process.env.WEBDAV_E2E_USER ?? 'stickynotes';

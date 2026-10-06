@@ -1,6 +1,7 @@
 import { getDatabase, openAppDatabase } from './db';
 import { createNote, nowIso, rowToNote, type Note, type NoteRow } from './note';
 import { noteColorFromString, type NoteColor } from './theme';
+import { recordInTransaction } from './hardDeleteLedger';
 import type { NoteLike } from '../sync/dto';
 import type { ImportNote } from '../services/backupData';
 
@@ -112,9 +113,18 @@ export const noteRepository = {
     );
   },
 
-  /** 本地彻底删除（仅本地；远端墓碑文件由各端保留，不物理删除远端对象） */
+  /**
+   * 本地彻底删除（仅本地；远端墓碑文件由各端保留，不物理删除远端对象）。
+   * 删除与硬删除台账记账同一事务（对照桌面端 P2-1 修复）：对账时台账否决该 id 的远端回流。
+   */
   async purgeAsync(id: string): Promise<void> {
-    getDatabase().runSync('DELETE FROM notes WHERE id = ?', id);
+    const db = openAppDatabase();
+    db.withTransactionSync(() => {
+      const result = db.runSync('DELETE FROM notes WHERE id = ?', id);
+      if (result.changes > 0) {
+        recordInTransaction(db, [id], nowIso());
+      }
+    });
   },
 
   /**
@@ -152,8 +162,17 @@ export const noteRepository = {
     return { total: notes.length, imported, skipped };
   },
 
+  /** 清空回收站：先查出待删 id 集合，与台账记账同一事务内整批物理删除（对照桌面端 P2-1 修复） */
   async purgeAllDeletedAsync(): Promise<void> {
-    getDatabase().runSync('DELETE FROM notes WHERE is_deleted = 1');
+    const db = openAppDatabase();
+    db.withTransactionSync(() => {
+      const ids = db
+        .getAllSync<{ id: string }>('SELECT id FROM notes WHERE is_deleted = 1')
+        .map((r) => r.id);
+      if (ids.length === 0) return;
+      db.runSync('DELETE FROM notes WHERE is_deleted = 1');
+      recordInTransaction(db, ids, nowIso());
+    });
   },
 
   /**

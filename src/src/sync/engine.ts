@@ -6,7 +6,11 @@
 //   · 探针守卫：远端列目录后首步校验 .auth_verifier，不匹配立即中断整轮（不写库）
 //   · 上行：正文注入 SN1: 魔数 → AES-256-CBC → 输出 iv + payload（不含 content）
 //   · 下行：解密并核验魔数，失败计入 skippedInvalid 跳过，绝不写入乱码
+//
+// 硬删除台账（P2-1，对照桌面端）：本机彻底删除过的 id 在对账时否决远端回流，
+// 云端版本不新于删除时刻时主动推墓碑覆盖云端；台账纯本地（hard_deleted 表），不参与同步。
 import { noteRepository, type INoteRepository, type RemoteApplyItem } from '../data/noteRepository';
+import { hardDeleteLedger, type HardDeleteLedgerReader } from '../data/hardDeleteLedger';
 import { ensureVerifierAsync } from './authVerifier';
 import {
   MAX_NOTE_FILE_BYTES,
@@ -45,9 +49,14 @@ export interface SyncRoundSummary {
 export class SyncEngine {
   private running = false;
   private readonly repository: INoteRepository;
+  private readonly ledger: HardDeleteLedgerReader;
 
-  constructor(repository: INoteRepository = noteRepository) {
+  constructor(
+    repository: INoteRepository = noteRepository,
+    ledger: HardDeleteLedgerReader = hardDeleteLedger,
+  ) {
     this.repository = repository;
+    this.ledger = ledger;
   }
 
   /**
@@ -147,6 +156,9 @@ export class SyncEngine {
     const localNotes = await this.repository.getAllAsync();
     const snapshot = new Map(localNotes.map((n) => [n.id, n]));
 
+    // 2.1 硬删除台账（P2-1）：本机彻底删除过的 id 否决「本地无行」的远端回流，详见对账分支
+    const hardDeleted = await this.ledger.loadAsync();
+
     const downloads: RemoteApplyItem[] = [];
     const uploads: NoteLike[] = [];
 
@@ -155,6 +167,21 @@ export class SyncEngine {
       const remoteDto = remote.get(id);
 
       if (!localNote && remoteDto) {
+        const deletedAt = hardDeleted.get(id);
+        if (deletedAt !== undefined) {
+          // 台账命中：已彻底删除的便签绝不插回本机（两个分支都绝不 download）
+          if (tsValue(remoteDto.updatedAt) <= tsValue(deletedAt)) {
+            // 云端版本不新于本机删除时刻 → 推墓碑覆盖云端，止住回流。
+            // 保留云端现有正文，只翻转 isDeleted、改写 updatedAt，与软删除墓碑语义一致；
+            // 幂等由 businessEquals（不比时间戳）保证：推送一轮后收敛，不会乒乓。
+            const tombstone: NoteLike = { ...remoteDto, isDeleted: true, updatedAt: deletedAt };
+            if (!businessEquals(tombstone, remoteDto)) {
+              uploads.push(tombstone);
+            }
+          }
+          // else：云端在删除后被其他设备编辑过 → 编辑胜过删除（与 LWW 一致），但台账仍否决下行
+          continue;
+        }
         // 远端新便签（含其他设备的墓碑，回流入库为不可见行）
         downloads.push({ note: remoteDto, snapshotUpdatedAt: null });
       } else if (localNote && !remoteDto) {

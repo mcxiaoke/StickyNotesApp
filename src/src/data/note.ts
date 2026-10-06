@@ -41,7 +41,11 @@ export function rowToNote(row: NoteRow): Note {
  * 因此这里把 3 位补齐为 7 位；若该前提变化，本函数需同步调整。
  */
 export function nowIso(): string {
-  const iso = new Date().toISOString(); // 2026-10-04T07:30:00.123Z
+  return isoFromMs(Date.now());
+}
+
+export function isoFromMs(ms: number): string {
+  const iso = new Date(ms).toISOString(); // 2026-10-04T07:30:00.123Z
   return iso.replace(/\.(\d{3})Z$/, (_m, ms: string) => `.${ms}0000Z`);
 }
 

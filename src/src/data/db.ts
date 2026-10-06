@@ -37,6 +37,14 @@ const MIGRATIONS: string[] = [
     value TEXT NOT NULL
   );
   `,
+  // v2：硬删除台账（对照桌面端 hard_deleted.json）：id -> 本机彻底删除时刻(UTC)。
+  // 纯本地产物，永不参与同步；与便签删除写在同一事务内，杜绝进程中断漏记。
+  `
+  CREATE TABLE IF NOT EXISTS hard_deleted (
+    id TEXT PRIMARY KEY NOT NULL,
+    deleted_at TEXT NOT NULL
+  );
+  `,
 ];
 
 function migrate(db: AppDatabase): void {
