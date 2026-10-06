@@ -39,23 +39,33 @@ export const DEFAULT_SYNC_SETTINGS: SyncSettings = {
 
 const KV_KEY = 'sync.settings.v1';
 
+/** 同步设置被高频读取（每轮同步、每处 UI 判断），模块内缓存避免反复 kvGet + JSON.parse */
+let cached: SyncSettings | null = null;
+
 export function loadSyncSettings(): SyncSettings {
+  if (cached) return cached;
   const raw = kvGet(KV_KEY);
-  if (!raw) return { ...DEFAULT_SYNC_SETTINGS };
+  if (!raw) {
+    cached = { ...DEFAULT_SYNC_SETTINGS };
+    return cached;
+  }
   try {
     const parsed = JSON.parse(raw) as Partial<SyncSettings>;
-    return {
+    cached = {
       ...DEFAULT_SYNC_SETTINGS,
       ...parsed,
       webdav: { ...DEFAULT_SYNC_SETTINGS.webdav, ...parsed.webdav },
       s3: { ...DEFAULT_SYNC_SETTINGS.s3, ...parsed.s3 },
     };
+    return cached;
   } catch (ex) {
     logger.warn('syncSettings', `corrupted sync settings ignored: ${String(ex)}`);
-    return { ...DEFAULT_SYNC_SETTINGS };
+    cached = { ...DEFAULT_SYNC_SETTINGS };
+    return cached;
   }
 }
 
 export function saveSyncSettings(settings: SyncSettings): void {
   kvSet(KV_KEY, JSON.stringify(settings));
+  cached = null;
 }

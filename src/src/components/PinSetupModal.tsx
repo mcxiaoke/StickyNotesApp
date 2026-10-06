@@ -1,6 +1,6 @@
 // PIN 管理弹层：启用（新 PIN+确认）/ 修改（当前+新+确认）/ 清除（当前）
 // 状态重置由父组件通过 key 重挂载完成，不用 effect 内 setState
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Modal, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 
 import { isValidPin, PIN_MAX_LENGTH } from '../services/pin';
@@ -34,7 +34,7 @@ export function PinSetupModal({
   onSubmit: (values: Record<string, string>) => Promise<string | null>;
 }) {
   const p = useShellPalette();
-  const styles = makeStyles(p);
+  const styles = useMemo(() => makeStyles(p), [p]);
 
   const [values, setValues] = useState<Record<string, string>>({});
   const [error, setError] = useState<string | null>(null);

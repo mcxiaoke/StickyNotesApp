@@ -8,7 +8,6 @@ import { logger } from '../services/logger';
 
 interface NotesState {
   notes: Note[];
-  loaded: boolean;
   refreshAsync: () => Promise<void>;
   createAsync: (content?: string, color?: NoteColor) => Promise<Note>;
   saveContentAsync: (id: string, content: string) => Promise<void>;
@@ -40,11 +39,10 @@ export const SYNC_DELAY_AFTER_DELETE_MS = 2000;
 
 export const notesStore = create<NotesState>((set, get) => ({
   notes: [],
-  loaded: false,
 
   refreshAsync: async () => {
     const notes = await noteRepository.getAllAsync();
-    set({ notes, loaded: true });
+    set({ notes });
   },
 
   createAsync: async (content = '', color = 'yellow') => {

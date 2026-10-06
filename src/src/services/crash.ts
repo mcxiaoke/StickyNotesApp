@@ -1,7 +1,7 @@
 // 崩溃与全局错误处理：
 // 1) 全局未捕获异常 → 记录到 kv + 内存日志；release 下用内置崩溃屏接管（保持进程存活，可复制信息）。
 // 2) 未处理的 Promise rejection → 记录到日志（不再静默）。
-// 3) React 渲染错误由 ErrorBoundary 兜底（见 components/ErrorBoundary.tsx）。
+// 3) React 渲染错误由 ErrorBoundary 兜底（见 components/AppErrorBoundary.tsx）。
 import { kvGet, kvSet, kvDelete } from '../data/db';
 import Constants from 'expo-constants';
 import { Platform } from 'react-native';

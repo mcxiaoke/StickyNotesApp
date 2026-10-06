@@ -1,5 +1,5 @@
 // 应用锁解锁屏：PIN 输入 + 可选生物识别，覆盖整个应用
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
@@ -11,7 +11,7 @@ import { SPACING, RADII, FONT, LINE_HEIGHT } from '../constants/metrics';
 
 export function LockScreen() {
   const p = useShellPalette();
-  const styles = makeStyles(p);
+  const styles = useMemo(() => makeStyles(p), [p]);
   const inputRef = useRef<TextInput>(null);
 
   const biometricEnabled = lockStore((s) => s.biometricEnabled);

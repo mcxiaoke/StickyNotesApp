@@ -16,7 +16,7 @@ import { notesStore } from '../stores/notesStore';
 export default function ArchiveScreen() {
   const p = useShellPalette();
   const dark = useScheme() === 'dark';
-  const styles = makeStyles(p);
+  const styles = useMemo(() => makeStyles(p), [p]);
 
   const notes = notesStore((s) => s.notes);
   const restoreAsync = notesStore((s) => s.restoreAsync);

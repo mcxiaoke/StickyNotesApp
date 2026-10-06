@@ -1,5 +1,4 @@
 // 实时搜索与关键词高亮（方案 §4.2 主界面）
-import { displayTitle, previewText } from '../data/theme';
 import type { Note } from '../data/note';
 
 export interface SearchSegment {
@@ -31,15 +30,4 @@ export function highlightSegments(text: string, query: string): SearchSegment[] 
     cursor = idx + q.length;
   }
   return segments;
-}
-
-/** 卡片搜索态展示：标题行 + 预览行（都做高亮拆分） */
-export function buildSearchDisplay(content: string, query: string): {
-  title: SearchSegment[];
-  preview: SearchSegment[];
-} {
-  return {
-    title: highlightSegments(displayTitle(content), query),
-    preview: highlightSegments(previewText(content), query),
-  };
 }

@@ -101,13 +101,18 @@ export class WebDavBackend implements IStorageBackend {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
     try {
+      // Depth 只在 PROPFIND 有意义，且由调用方显式传入（0 = 探测根，1 = 列集合）。
+      // 这里作为缺省值补齐，避免出现两处写入同一头（后者静默覆盖前者）的情况。
+      const headers: Record<string, string> = {
+        Authorization: this.authHeader,
+        ...options.headers,
+      };
+      if (options.method === 'PROPFIND' && headers['Depth'] == null) {
+        headers['Depth'] = '1';
+      }
       return await fetch(url, {
         method: options.method ?? method,
-        headers: {
-          Authorization: this.authHeader,
-          ...(options.method === 'PROPFIND' ? { Depth: options.headers?.Depth ?? '1' } : {}),
-          ...options.headers,
-        },
+        headers,
         body: options.body,
         signal: controller.signal,
       });

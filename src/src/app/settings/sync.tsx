@@ -42,7 +42,7 @@ const TEST_TIMEOUT_MS = 10_000;
 
 export default function SyncSettingsScreen() {
   const p = useShellPalette();
-  const styles = makeStyles(p);
+  const styles = useMemo(() => makeStyles(p), [p]);
 
   const [form, setForm] = useState<SyncSettings>(DEFAULT_SYNC_SETTINGS);
   const [webdavPassword, setWebdavPassword] = useState('');

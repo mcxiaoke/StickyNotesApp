@@ -32,7 +32,6 @@ interface AppSettings {
   themeMode: ThemeMode;
   fontSize: FontSize;
   autoLockMinutes: number;
-  hydrated: boolean;
   hydrate: () => void;
   setThemeMode: (mode: ThemeMode) => void;
   setFontSize: (size: FontSize) => void;
@@ -62,14 +61,12 @@ export const settingsStore = create<AppSettings>((set) => ({
   themeMode: 'system',
   fontSize: 14,
   autoLockMinutes: AUTO_LOCK_DEFAULT,
-  hydrated: false,
   hydrate: () => {
     const saved = loadPersisted();
     set({
       themeMode: saved?.themeMode ?? 'system',
       fontSize: saved?.fontSize ?? 14,
       autoLockMinutes: saved?.autoLockMinutes ?? AUTO_LOCK_DEFAULT,
-      hydrated: true,
     });
   },
   setThemeMode: (mode) => {

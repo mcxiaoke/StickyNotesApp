@@ -32,7 +32,8 @@ const MANUAL_REFRESH_SPINNER_MAX_MS = 15_000;
 export default function NotesListScreen() {
   const router = useRouter();
   const p = useShellPalette();
-  const styles = makeStyles(p);
+  // 配色只有明/暗两套常量，按引用记忆化即可避免每次渲染重建整套 StyleSheet
+  const styles = useMemo(() => makeStyles(p), [p]);
 
   const notes = notesStore((s) => s.notes);
   const refreshAsync = notesStore((s) => s.refreshAsync);

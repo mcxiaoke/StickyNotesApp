@@ -33,7 +33,7 @@ export default function SettingsScreen() {
   const router = useRouter();
   const p = useShellPalette();
   const previewTheme = getNoteColorTheme('yellow', useScheme() === 'dark');
-  const styles = makeStyles(p);
+  const styles = useMemo(() => makeStyles(p), [p]);
 
   const themeMode = settingsStore((s) => s.themeMode);
   const fontSize = settingsStore((s) => s.fontSize);

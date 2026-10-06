@@ -1,4 +1,5 @@
 // 通用底部操作菜单（平台弹层形态，跨端一致的简单实现）
+import { useMemo } from 'react';
 import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 import type { ShellPalette } from '../constants/theme';
 import { useShellPalette } from '../hooks/use-shell';
@@ -23,7 +24,7 @@ export function AppMenu({
   title?: string;
 }) {
   const p = useShellPalette();
-  const styles = makeStyles(p);
+  const styles = useMemo(() => makeStyles(p), [p]);
 
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
