@@ -38,6 +38,10 @@ export default function NoteEditorScreen() {
   const [paletteVisible, setPaletteVisible] = useState(false);
   const [menuVisible, setMenuVisible] = useState(false);
   const [isEditing, setIsEditing] = useState(id === 'new' || (note ? note.content === '' : false));
+  // 编辑态高度：TextInput 视口交给外层 ScrollView，输入框以自身高度撑开，不再内部滚动，
+  // 避免 Android Multiline TextInput 上下滑动误触长按选词弹出 ActionMode 菜单。
+  const [editorHeight, setEditorHeight] = useState(0);
+  const [editViewport, setEditViewport] = useState(0);
 
   const inputRef = useRef<TextInput>(null);
 
@@ -198,24 +202,41 @@ export default function NoteEditorScreen() {
           </View>
         </View>
 
-        {/* 内容区：只读态走外层 ScrollView（Text 随内容撑开，天然可滚动），
-            编辑态以 TextInput 自身为滚动主体（其默认 scrollEnabled，长便签内部滚动）。
-            二者不可合并：一旦给 TextInput 加 flex 高度约束又禁用自身滚动，长便签就彻底滚不动。 */}
+        {/* 内容区：只读态走外层 ScrollView（Text 随内容撑开，天然可滚动）。
+            编辑态也交给外层 ScrollView 滚动：TextInput 通过 onContentSizeChange 把自身高度
+            撑到与文本等高（>=视口高度），自身永不再滚动。
+            这样 Android EditText 就没有内部可滚溢出，上下滑动由 ScrollView 独占，
+            不会再被系统判成长按选词从而弹出 ActionMode（全选/复制）菜单。 */}
         {isEditing ? (
-          <TextInput
-            ref={inputRef}
-            style={[styles.editor, { color: theme.text, fontSize }]}
-            multiline
-            value={content}
-            placeholder="记录点什么..."
-            placeholderTextColor={theme.secondary}
-            onChangeText={(text) => {
-              setDraft(text);
-              autoSave.schedule(note.id, text);
-            }}
-            textAlignVertical="top"
-            autoFocus={note.content === ''}
-          />
+          <ScrollView
+            style={styles.flex}
+            contentContainerStyle={styles.editContent}
+            keyboardDismissMode="on-drag"
+            keyboardShouldPersistTaps="handled"
+            onLayout={(e) => setEditViewport(e.nativeEvent.layout.height)}
+          >
+            <TextInput
+              ref={inputRef}
+              style={[
+                styles.editor,
+                { color: theme.text, fontSize, height: Math.max(editorHeight, editViewport) },
+              ]}
+              multiline
+              value={content}
+              placeholder="记录点什么..."
+              placeholderTextColor={theme.secondary}
+              onChangeText={(text) => {
+                setDraft(text);
+                autoSave.schedule(note.id, text);
+              }}
+              onContentSizeChange={(e) =>
+                setEditorHeight(e.nativeEvent.contentSize.height + SPACING.lg * 2)
+              }
+              scrollEnabled={false}
+              textAlignVertical="top"
+              autoFocus={note.content === ''}
+            />
+          </ScrollView>
         ) : (
           <ScrollView
             style={styles.flex}
@@ -290,14 +311,15 @@ const styles = StyleSheet.create({
   readContent: {
     flexGrow: 1,
   },
+  editContent: {
+    flexGrow: 1,
+  },
   readPressable: {
     flexGrow: 1,
     padding: SPACING.lg,
   },
   editor: {
-    flex: 1,
     padding: SPACING.lg,
-    minHeight: 200,
   },
   statusBar: {
     flexDirection: 'row',
