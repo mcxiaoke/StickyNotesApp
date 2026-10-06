@@ -1,9 +1,11 @@
 // Cloudflare R2 / S3 兼容存储后端（对照桌面端 S3Backend.cs）：
 // path-style URL + 最小 SigV4 签名，ListObjectsV2 / GetObject / PutObject / DeleteObject。
 import { XMLParser } from 'fast-xml-parser';
+import { describeError, logger } from '../../services/logger';
 import { NOTES_PREFIX, noteKey } from '../dto';
 import { normalizeUrlInput } from '../protocol';
 import { signRequest } from '../crypto/sigv4';
+import { readBodySnippetAsync, stripQuery } from './requestLog';
 import { StorageBackendError, type IStorageBackend, type RemoteItem } from './types';
 
 export interface S3Config {
@@ -80,7 +82,7 @@ export class S3Backend implements IStorageBackend {
   async getTextAsync(key: string): Promise<string | null> {
     const res = await this.signedFetch('GET', `/${this.fullKey(key)}`);
     if (res.status === 404) return null;
-    if (!res.ok) this.throwForStatus('GET', res.status);
+    if (!res.ok) throw await this.errorForStatus('GET', res);
     return res.text();
   }
 
@@ -89,13 +91,13 @@ export class S3Backend implements IStorageBackend {
       body: content,
       contentType: 'application/json; charset=utf-8',
     });
-    if (!res.ok) this.throwForStatus('PUT', res.status);
+    if (!res.ok) throw await this.errorForStatus('PUT', res);
   }
 
   async deleteAsync(key: string): Promise<void> {
     const res = await this.signedFetch('DELETE', `/${this.fullKey(key)}`);
     if (res.status === 404) return;
-    if (!res.ok) this.throwForStatus('DELETE', res.status);
+    if (!res.ok) throw await this.errorForStatus('DELETE', res);
   }
 
   /** ListObjectsV2 max-keys=1：验证 Endpoint / Bucket / 凭据 */
@@ -140,8 +142,12 @@ export class S3Backend implements IStorageBackend {
 
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+    const started = Date.now();
+    // 日志口径不含 Authorization 与查询串；请求体不记内容（仅字节数）
+    const label = `${method} ${stripQuery(url)}`;
+    const bodyNote = options.body != null ? ` body=${options.body.length}B` : '';
     try {
-      return await fetch(url, {
+      const res = await fetch(url, {
         method,
         headers: {
           Authorization: sig.authorization,
@@ -152,6 +158,19 @@ export class S3Backend implements IStorageBackend {
         body: options.body,
         signal: controller.signal,
       });
+      const elapsed = `${Date.now() - started}ms`;
+      // 请求级日志：所有响应都记（一轮同步请求数有限），非 2xx 附服务器响应片段（S3 错误 XML 含具体原因）
+      if (res.ok) {
+        logger.debug('s3', `${label}${bodyNote} -> ${res.status} (${elapsed})`);
+      } else {
+        const snippet = await readBodySnippetAsync(res);
+        logger.debug('s3', `${label}${bodyNote} -> ${res.status} (${elapsed}) body=${snippet || '<empty>'}`);
+      }
+      return res;
+    } catch (ex) {
+      // 网络层异常（超时/断网/TLS 等）；AbortError 即 10 秒超时
+      logger.warn('s3', `${label}${bodyNote} failed after ${Date.now() - started}ms: ${describeError(ex)}`);
+      throw ex;
     } finally {
       clearTimeout(timer);
     }
@@ -163,18 +182,25 @@ export class S3Backend implements IStorageBackend {
     params?: [string, string][],
   ): Promise<string> {
     const res = await this.signedFetch(method, objectKey, { params });
-    if (!res.ok) this.throwForStatus(method, res.status);
+    if (!res.ok) throw await this.errorForStatus(method, res);
     return res.text();
   }
 
-  private throwForStatus(operation: string, status: number): never {
+  /**
+   * 构造存储后端错误（401/403/404 有针对性提示），错误消息附服务器响应片段
+   * （S3 错误 XML 的 <Message>/Code），统一由调用处 throw。
+   */
+  private async errorForStatus(operation: string, res: Response): Promise<StorageBackendError> {
+    const status = res.status;
+    const snippet = await readBodySnippetAsync(res, 200);
+    const detail = snippet ? `：${snippet}` : '';
     if (status === 401 || status === 403) {
-      throw new StorageBackendError('认证失败（403）：请检查 AccessKey 与 SecretAccessKey', status);
+      return new StorageBackendError(`认证失败（403）：请检查 AccessKey 与 SecretAccessKey${detail}`, status);
     }
     if (status === 404) {
-      throw new StorageBackendError('Bucket 不存在（404）：请检查 Endpoint 与 Bucket 名称', status);
+      return new StorageBackendError(`Bucket 不存在（404）：请检查 Endpoint 与 Bucket 名称${detail}`, status);
     }
-    throw new StorageBackendError(`${operation} 失败: HTTP ${status}`, status);
+    return new StorageBackendError(`${operation} 失败: HTTP ${status}${detail}`, status);
   }
 }
 

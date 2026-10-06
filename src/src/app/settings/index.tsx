@@ -12,7 +12,7 @@ import type { ShellPalette } from '../../constants/theme';
 import { useShellPalette, useScheme } from '../../hooks/use-shell';
 import { SPACING, RADII, FONT, LINE_HEIGHT } from '../../constants/metrics';
 import { getDeviceId } from '../../services/deviceId';
-import { logger } from '../../services/logger';
+import { describeError, logger } from '../../services/logger';
 import { getLastCrash, clearLastCrash } from '../../services/crash';
 import { exportNotesAsync, importNotesAsync } from '../../services/backup';
 import { getLastBackupDate } from '../../services/dbBackup';
@@ -38,9 +38,6 @@ export default function SettingsScreen() {
   const themeMode = settingsStore((s) => s.themeMode);
   const fontSize = settingsStore((s) => s.fontSize);
   const [lastCrash, setLastCrash] = useState<string | null>(() => getLastCrash());
-  const [logCopied, setLogCopied] = useState(false);
-  // 仅用于在清空/复制日志后触发本组件重渲染以刷新条数显示
-  const [, setLogTick] = useState(0);
   const [dataBusy, setDataBusy] = useState(false);
   const [lastBackupDate] = useState(() => getLastBackupDate());
 
@@ -88,6 +85,8 @@ export default function SettingsScreen() {
       const count = await exportNotesAsync();
       logger.info('settings', `export finished: ${count} notes`);
     } catch (ex) {
+      // 只 Alert 的话重启即丢，先进日志再提示
+      logger.error('settings', `export failed: ${describeError(ex)}`);
       Alert.alert('导出失败', ex instanceof Error ? ex.message : String(ex));
     } finally {
       setDataBusy(false);
@@ -108,6 +107,7 @@ export default function SettingsScreen() {
       }
       Alert.alert('导入完成', lines.join('，'));
     } catch (ex) {
+      logger.error('settings', `import failed: ${describeError(ex)}`);
       Alert.alert('导入失败', ex instanceof Error ? ex.message : String(ex));
     } finally {
       setDataBusy(false);
@@ -117,13 +117,6 @@ export default function SettingsScreen() {
   const copyText = async (text: string) => {
     await Clipboard.setStringAsync(text);
     logger.info('settings', 'diagnostic text copied to clipboard');
-  };
-
-  const copyLogs = async () => {
-    await Clipboard.setStringAsync(logger.getLines().join('\n') || '（暂无日志）');
-    setLogCopied(true);
-    setTimeout(() => setLogCopied(false), 2000);
-    logger.info('settings', 'log buffer copied to clipboard');
   };
 
   return (
@@ -306,22 +299,8 @@ export default function SettingsScreen() {
             </View>
           ) : null}
           <View style={styles.logButtonRow}>
-            <Pressable
-              style={[styles.logButton, logCopied && styles.logButtonCopied]}
-              onPress={() => void copyLogs()}
-            >
-              <Text style={[styles.logButtonText, logCopied && styles.logButtonTextSuccess]}>
-                {logCopied ? '已复制' : `复制日志（${logger.count()} 条）`}
-              </Text>
-            </Pressable>
-            <Pressable
-              style={[styles.logButton, styles.logButtonDanger]}
-              onPress={() => {
-                logger.clear();
-                setLogTick((t) => t + 1);
-              }}
-            >
-              <Text style={styles.logButtonTextMuted}>清空日志</Text>
+            <Pressable style={styles.logButton} onPress={() => router.push('/settings/logs')}>
+              <Text style={styles.logButtonText}>查看日志</Text>
             </Pressable>
           </View>
         </View>
@@ -489,21 +468,11 @@ const makeStyles = (p: ShellPalette) =>
     logButtonDanger: {
       backgroundColor: p.border,
     },
-    // 复制成功态：柔和容器底 + 容器前景（语义色，不再用固定绿色）
-    logButtonCopied: {
-      backgroundColor: p.accentContainer,
-    },
     logButtonSecondary: {
       backgroundColor: p.border,
     },
     logButtonText: {
       color: p.onAccent,
-      fontSize: FONT.label,
-      lineHeight: LINE_HEIGHT.label,
-      fontWeight: '600',
-    },
-    logButtonTextSuccess: {
-      color: p.onAccentContainer,
       fontSize: FONT.label,
       lineHeight: LINE_HEIGHT.label,
       fontWeight: '600',

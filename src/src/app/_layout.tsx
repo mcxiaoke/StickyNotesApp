@@ -125,6 +125,7 @@ export default function RootLayout() {
             />
             <Stack.Screen name="settings/index" options={{ title: '设置', headerBackTitle: '返回' }} />
             <Stack.Screen name="settings/sync" options={{ title: '同步设置', headerBackTitle: '返回' }} />
+            <Stack.Screen name="settings/logs" options={{ title: '日志', headerBackTitle: '返回' }} />
           </Stack>
         </GestureHandlerRootView>
       </ThemeProvider>

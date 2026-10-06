@@ -4,6 +4,7 @@
 // 避免把不匹配密钥的密文逐个解密失败（并防止错误数据落库）。
 
 import { createMagicPayload, unwrapMagicPayload } from './crypto/cryptoHelper';
+import { describeError, logger } from '../services/logger';
 import type { IStorageBackend } from './backends/types';
 import { AUTH_VERIFIER_MAGIC, VERIFIER_KEY } from './protocol';
 
@@ -26,7 +27,9 @@ export function verifyVerifierJson(json: string, secret: string): boolean {
     if (!dto || typeof dto.iv !== 'string' || typeof dto.payload !== 'string') return false;
     if (!dto.iv || !dto.payload) return false;
     return unwrapMagicPayload(dto.iv, dto.payload, secret) === AUTH_VERIFIER_MAGIC;
-  } catch {
+  } catch (ex) {
+    // 静默返回 false 会让"探针为何无效"无从排查，这里补原因
+    logger.warn('sync', `auth verifier verify failed: ${describeError(ex)}`);
     return false;
   }
 }

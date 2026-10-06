@@ -4,8 +4,10 @@
 import { XMLParser } from 'fast-xml-parser';
 import { bytesToBase64 } from '../crypto/base64';
 import { utf8Encode } from '../crypto/utf8';
+import { describeError, logger } from '../../services/logger';
 import { NOTES_PREFIX, noteKey } from '../dto';
 import { normalizeUrlInput } from '../protocol';
+import { readBodySnippetAsync, stripQuery } from './requestLog';
 import { StorageBackendError, type IStorageBackend, type RemoteItem } from './types';
 
 const PROPFIND_BODY =
@@ -50,7 +52,7 @@ export class WebDavBackend implements IStorageBackend {
   async getTextAsync(key: string): Promise<string | null> {
     const res = await this.request('GET', this.buildUrl(key));
     if (res.status === 404) return null;
-    if (!res.ok) this.throwForStatus('GET', res.status);
+    if (!res.ok) throw await this.errorForStatus('GET', res);
     return res.text();
   }
 
@@ -60,13 +62,13 @@ export class WebDavBackend implements IStorageBackend {
       body: content,
       headers: { 'Content-Type': 'application/json; charset=utf-8' },
     });
-    if (!res.ok) this.throwForStatus('PUT', res.status);
+    if (!res.ok) throw await this.errorForStatus('PUT', res);
   }
 
   async deleteAsync(key: string): Promise<void> {
     const res = await this.request('DELETE', this.buildUrl(key), { method: 'DELETE' });
     if (res.status === 404) return;
-    if (!res.ok) this.throwForStatus('DELETE', res.status);
+    if (!res.ok) throw await this.errorForStatus('DELETE', res);
   }
 
   /** PROPFIND 根集合 Depth 0：同时验证可达性、认证与根目录存在 */
@@ -80,7 +82,7 @@ export class WebDavBackend implements IStorageBackend {
       await this.ensureFoldersAsync();
       return;
     }
-    if (!res.ok && res.status !== 207) this.throwForStatus('测试连接', res.status);
+    if (!res.ok && res.status !== 207) throw await this.errorForStatus('测试连接', res);
   }
 
   dispose(): void {
@@ -100,6 +102,10 @@ export class WebDavBackend implements IStorageBackend {
   ): Promise<Response> {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+    const started = Date.now();
+    // 日志口径不含 Authorization 与查询串；请求体不记内容（仅字节数）
+    const label = `${options.method ?? method} ${stripQuery(url)}`;
+    const bodyNote = options.body != null ? ` body=${options.body.length}B` : '';
     try {
       // Depth 只在 PROPFIND 有意义，且由调用方显式传入（0 = 探测根，1 = 列集合）。
       // 这里作为缺省值补齐，避免出现两处写入同一头（后者静默覆盖前者）的情况。
@@ -110,12 +116,25 @@ export class WebDavBackend implements IStorageBackend {
       if (options.method === 'PROPFIND' && headers['Depth'] == null) {
         headers['Depth'] = '1';
       }
-      return await fetch(url, {
+      const res = await fetch(url, {
         method: options.method ?? method,
         headers,
         body: options.body,
         signal: controller.signal,
       });
+      const elapsed = `${Date.now() - started}ms`;
+      // 请求级日志：所有响应都记（一轮同步请求数有限），非 2xx/207 附服务器响应片段——定位 413 这类问题的关键
+      if (res.ok || res.status === 207) {
+        logger.debug('webdav', `${label}${bodyNote} -> ${res.status} (${elapsed})`);
+      } else {
+        const snippet = await readBodySnippetAsync(res);
+        logger.debug('webdav', `${label}${bodyNote} -> ${res.status} (${elapsed}) body=${snippet || '<empty>'}`);
+      }
+      return res;
+    } catch (ex) {
+      // 网络层异常（超时/断网/TLS 等）；AbortError 即 10 秒超时
+      logger.warn('webdav', `${label}${bodyNote} failed after ${Date.now() - started}ms: ${describeError(ex)}`);
+      throw ex;
     } finally {
       clearTimeout(timer);
     }
@@ -129,7 +148,7 @@ export class WebDavBackend implements IStorageBackend {
       body: PROPFIND_BODY,
     });
     if (res.status === 404) return null;
-    if (res.status !== 207 && !res.ok) this.throwForStatus('PROPFIND', res.status);
+    if (res.status !== 207 && !res.ok) throw await this.errorForStatus('PROPFIND', res);
 
     const text = await res.text();
     let responseNodes: Record<string, unknown>[];
@@ -140,7 +159,9 @@ export class WebDavBackend implements IStorageBackend {
       let raw = multistatus?.['response'] ?? doc['response'];
       if (!raw) raw = [];
       responseNodes = Array.isArray(raw) ? raw : [raw as Record<string, unknown>];
-    } catch {
+    } catch (ex) {
+      // 保留原始异常与响应片段再抛，否则"不是合法 XML"无法定位
+      logger.warn('webdav', `PROPFIND XML parse failed: ${describeError(ex)}; body=${text.slice(0, 200)}`);
       throw new StorageBackendError('WebDAV PROPFIND 响应不是合法 XML');
     }
 
@@ -207,14 +228,21 @@ export class WebDavBackend implements IStorageBackend {
     }
   }
 
-  private throwForStatus(operation: string, status: number): never {
+  /**
+   * 构造存储后端错误（401/403 有针对性提示），错误消息附服务器响应片段
+   * （如 413 的配额说明），统一由调用处 throw。
+   */
+  private async errorForStatus(operation: string, res: Response): Promise<StorageBackendError> {
+    const status = res.status;
+    const snippet = await readBodySnippetAsync(res, 200);
+    const detail = snippet ? `：${snippet}` : '';
     if (status === 401) {
-      throw new StorageBackendError('认证失败（401）：请检查用户名与应用专用密码', status);
+      return new StorageBackendError(`认证失败（401）：请检查用户名与应用专用密码${detail}`, status);
     }
     if (status === 403) {
-      throw new StorageBackendError('访问被拒绝（403）：请检查账号权限', status);
+      return new StorageBackendError(`访问被拒绝（403）：请检查账号权限${detail}`, status);
     }
-    throw new StorageBackendError(`${operation} 失败: HTTP ${status}`, status);
+    return new StorageBackendError(`${operation} 失败: HTTP ${status}${detail}`, status);
   }
 }
 

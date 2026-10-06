@@ -12,6 +12,7 @@
 import { noteRepository, type INoteRepository, type RemoteApplyItem } from '../data/noteRepository';
 import { hardDeleteLedger, type HardDeleteLedgerReader } from '../data/hardDeleteLedger';
 import { ensureVerifierAsync } from './authVerifier';
+import { describeError, logger } from '../services/logger';
 import {
   MAX_NOTE_FILE_BYTES,
   businessEquals,
@@ -111,11 +112,13 @@ export class SyncEngine {
           const text = await backend.getTextAsync(item.key);
           if (text == null || text.length > MAX_NOTE_FILE_BYTES) {
             skippedInvalid++;
+            logger.debug('sync', `skip invalid key=${item.key} (empty or oversize)`);
             continue;
           }
           const dto = parseDto(text, item.key);
           if (!dto) {
             skippedInvalid++;
+            logger.debug('sync', `skip invalid key=${item.key} (parse failed)`);
             continue;
           }
 
@@ -124,12 +127,14 @@ export class SyncEngine {
           if (isEncryptedDto(dto)) {
             if (!secret) {
               skippedInvalid++;
+              logger.debug('sync', `skip invalid key=${item.key} (encrypted but no secret)`);
               continue;
             }
             try {
               content = decryptDtoContent(dto, secret);
-            } catch {
+            } catch (ex) {
               skippedInvalid++;
+              logger.warn('sync', `decrypt failed key=${item.key}: ${describeError(ex)}`);
               continue;
             }
           } else {
@@ -140,6 +145,7 @@ export class SyncEngine {
         } catch (ex) {
           failedDownloads++;
           firstFailure ??= ex;
+          logger.warn('sync', `download failed key=${item.key}: ${describeError(ex)}`);
         }
       }
     });
@@ -215,8 +221,14 @@ export class SyncEngine {
       const dto = enableEncryption && secret
         ? dtoFromNoteEncrypted(note, deviceId, secret)
         : dtoFromNote(note, deviceId);
-      await backend.putTextAsync(noteKey(note.id), serializeDto(dto));
-      uploaded++;
+      try {
+        await backend.putTextAsync(noteKey(note.id), serializeDto(dto));
+        uploaded++;
+      } catch (ex) {
+        // 请求级细节由后端层记录（状态码/响应体），这里补业务上下文：失败的 key
+        logger.warn('sync', `upload failed key=${noteKey(note.id)}: ${describeError(ex)}`);
+        throw ex;
+      }
     }
 
     return {

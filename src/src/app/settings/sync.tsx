@@ -16,6 +16,7 @@ import type { ShellPalette } from '../../constants/theme';
 import { useShellPalette } from '../../hooks/use-shell';
 import { SPACING, RADII, FONT, LINE_HEIGHT } from '../../constants/metrics';
 import { getDeviceId } from '../../services/deviceId';
+import { describeError, logger } from '../../services/logger';
 import { getS3SecretAsync, getWebDavPasswordAsync, setS3SecretAsync, setWebDavPasswordAsync } from '../../services/credential';
 import { S3Backend } from '../../sync/backends/s3';
 import { WebDavBackend } from '../../sync/backends/webdav';
@@ -144,6 +145,8 @@ export default function SyncSettingsScreen() {
       }
       setTestResult(`连接成功（${Date.now() - startedAt} ms）${extra}`);
     } catch (ex) {
+      // 与 UI 提示并存：完整错误（含 cause 链）落日志，避免重启后无迹可寻
+      logger.error('syncTest', `test connection failed: ${describeError(ex)}`);
       setTestResult(`连接失败：${ex instanceof Error ? ex.message : String(ex)}`);
     } finally {
       backend?.dispose();
