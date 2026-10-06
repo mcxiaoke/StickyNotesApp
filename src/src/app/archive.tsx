@@ -1,6 +1,6 @@
 // 已归档便签管理页：查看 / 恢复 / 彻底删除 / 清空回收站
 import { useMemo, useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
 import { FlashList } from '@shopify/flash-list';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -28,13 +28,19 @@ export default function ArchiveScreen() {
 
   const menuActions: MenuAction[] = useMemo(() => {
     if (!menuNote) return [];
+    const target = menuNote;
     return [
-      { key: 'restore', label: '恢复便签', onPress: () => void restoreAsync(menuNote.id) },
+      { key: 'restore', label: '恢复便签', onPress: () => void restoreAsync(target.id) },
       {
         key: 'purge',
         label: '彻底删除',
         destructive: true,
-        onPress: () => void purgeAsync(menuNote.id),
+        // 不可逆操作：先二次确认（列表左滑的归档是可恢复操作，不需要确认）
+        onPress: () =>
+          Alert.alert('彻底删除便签', '删除后本机不再保留这条便签，且无法撤销。', [
+            { text: '取消', style: 'cancel' },
+            { text: '彻底删除', style: 'destructive', onPress: () => void purgeAsync(target.id) },
+          ]),
       },
     ];
   }, [menuNote, restoreAsync, purgeAsync]);
@@ -44,7 +50,19 @@ export default function ArchiveScreen() {
       <View style={styles.headerRow}>
         <Text style={styles.countText}>{archived.length} 条已归档</Text>
         {archived.length > 0 ? (
-          <Pressable hitSlop={8} onPress={() => void purgeAllDeletedAsync()}>
+          <Pressable
+            hitSlop={8}
+            onPress={() =>
+              Alert.alert(
+                '清空回收站',
+                `将彻底删除 ${archived.length} 条已归档便签，无法撤销。`,
+                [
+                  { text: '取消', style: 'cancel' },
+                  { text: '清空', style: 'destructive', onPress: () => void purgeAllDeletedAsync() },
+                ],
+              )
+            }
+          >
             <Text style={styles.clearText}>清空</Text>
           </Pressable>
         ) : null}
