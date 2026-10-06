@@ -1,7 +1,6 @@
-// 便签卡片：7 色主题作用于卡片本身（用户自选色，与桌面端一致），标题加粗提取 + 预览 + 置顶图钉 + 更多菜单 + 左滑归档
+// 便签卡片：7 色主题作用于卡片本身（用户自选色，与桌面端一致），标题加粗提取 + 预览 + 置顶图钉 + 更多菜单（锚点弹出）
 import { memo } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
-import ReanimatedSwipeable from 'react-native-gesture-handler/ReanimatedSwipeable';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import type { Note } from '../data/note';
 import { getNoteColorTheme, displayTitle, previewText } from '../data/theme';
@@ -9,16 +8,16 @@ import { highlightSegments, type SearchSegment } from '../services/search';
 import { relativeTime } from '../services/time';
 import { useShellPalette, useScheme } from '../hooks/use-shell';
 import { SPACING, RADII, FONT, LINE_HEIGHT } from '../constants/metrics';
+import type { PopMenuAnchor } from './PopMenu';
 
 export interface NoteCardProps {
   note: Note;
   query: string;
   onPress: (note: Note) => void;
-  onMenu: (note: Note) => void;
-  onSwipeArchive?: (note: Note) => void;
+  onMenu: (note: Note, anchor: PopMenuAnchor) => void;
 }
 
-export const NoteCard = memo(function NoteCard({ note, query, onPress, onMenu, onSwipeArchive }: NoteCardProps) {
+export const NoteCard = memo(function NoteCard({ note, query, onPress, onMenu }: NoteCardProps) {
   const dark = useScheme() === 'dark';
   const theme = getNoteColorTheme(note.color, dark);
   const p = useShellPalette();
@@ -48,7 +47,10 @@ export const NoteCard = memo(function NoteCard({ note, query, onPress, onMenu, o
           {note.isPinnedInList ? (
             <MaterialCommunityIcons name="pin" size={16} color={theme.accent} style={styles.pin} />
           ) : null}
-          <Pressable hitSlop={10} onPress={() => onMenu(note)}>
+          <Pressable
+            hitSlop={10}
+            onPress={(e) => onMenu(note, { x: e.nativeEvent.pageX, y: e.nativeEvent.pageY })}
+          >
             <Ionicons name="ellipsis-horizontal" size={18} color={theme.secondary} />
           </Pressable>
         </View>
@@ -69,32 +71,10 @@ export const NoteCard = memo(function NoteCard({ note, query, onPress, onMenu, o
     </Pressable>
   );
 
-  if (!onSwipeArchive) return card;
-
-  return (
-    <ReanimatedSwipeable
-      containerStyle={styles.swipeContainer}
-      rightThreshold={40}
-      overshootRight={false}
-      renderRightActions={() => (
-        <Pressable
-          style={[styles.swipeAction, { backgroundColor: p.danger }]}
-          onPress={() => onSwipeArchive(note)}
-        >
-          <Text style={[styles.swipeActionText, { color: p.onError }]}>归档</Text>
-        </Pressable>
-      )}
-    >
-      {card}
-    </ReanimatedSwipeable>
-  );
+  return card;
 });
 
 const styles = StyleSheet.create({
-  swipeContainer: {
-    marginBottom: SPACING.sm,
-    marginHorizontal: SPACING.xs,
-  },
   card: {
     borderRadius: RADII.md,
     borderWidth: StyleSheet.hairlineWidth,
@@ -138,16 +118,5 @@ const styles = StyleSheet.create({
   footerText: {
     fontSize: FONT.caption,
     lineHeight: LINE_HEIGHT.caption,
-  },
-  swipeAction: {
-    width: 72,
-    marginLeft: SPACING.sm,
-    borderRadius: RADII.md,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  swipeActionText: {
-    fontSize: FONT.body,
-    lineHeight: LINE_HEIGHT.body,
   },
 });

@@ -14,7 +14,9 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 
 import { NoteCard } from '../components/NoteCard';
-import { AppMenu, type MenuAction } from '../components/AppMenu';
+import { PopMenu } from '../components/PopMenu';
+import type { MenuAction } from '../components/AppMenu';
+import type { PopMenuAnchor } from '../components/PopMenu';
 import { SyncDot } from '../components/SyncDot';
 import { cardShadow, type ShellPalette } from '../constants/theme';
 import { SPACING, RADII, FONT, LINE_HEIGHT, TOUCH_TARGET, APPBAR_HEIGHT, FAB_SIZE } from '../constants/metrics';
@@ -44,7 +46,7 @@ export default function NotesListScreen() {
 
   const [query, setQuery] = useState('');
   const [filter, setFilter] = useState<FilterMode>('all');
-  const [menuNote, setMenuNote] = useState<Note | null>(null);
+  const [menuTarget, setMenuTarget] = useState<{ note: Note; anchor: PopMenuAnchor } | null>(null);
   const [refreshing, setRefreshing] = useState(false);
 
   const visibleNotes = useMemo(() => {
@@ -75,22 +77,27 @@ export default function NotesListScreen() {
     }
   }, [refreshAsync]);
 
+  // 稳定引用：NoteCard 有 memo，回调每次渲染重建会让 memo 失效，列表卡顿
+  const openNote = useCallback((note: Note) => router.push(`/note/${note.id}`), [router]);
+  const openCardMenu = useCallback((note: Note, anchor: PopMenuAnchor) => setMenuTarget({ note, anchor }), []);
+
   const menuActions: MenuAction[] = useMemo(() => {
-    if (!menuNote) return [];
+    const note = menuTarget?.note;
+    if (!note) return [];
     return [
       {
         key: 'pin',
-        label: menuNote.isPinnedInList ? '取消置顶' : '置顶',
-        onPress: () => void togglePinAsync(menuNote.id),
+        label: note.isPinnedInList ? '取消置顶' : '置顶',
+        onPress: () => void togglePinAsync(note.id),
       },
       {
         key: 'archive',
         label: '归档',
         destructive: true,
-        onPress: () => void archiveAsync(menuNote.id),
+        onPress: () => void archiveAsync(note.id),
       },
     ];
-  }, [menuNote, togglePinAsync, archiveAsync]);
+  }, [menuTarget, togglePinAsync, archiveAsync]);
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
@@ -150,9 +157,8 @@ export default function NotesListScreen() {
           <NoteCard
             note={item}
             query={query}
-            onPress={(note) => router.push(`/note/${note.id}`)}
-            onMenu={setMenuNote}
-            onSwipeArchive={(note) => void archiveAsync(note.id)}
+            onPress={openNote}
+            onMenu={openCardMenu}
           />
         )}
         ListEmptyComponent={
@@ -174,11 +180,10 @@ export default function NotesListScreen() {
         <Ionicons name="add" size={30} color={p.onAccent} />
       </Pressable>
 
-      <AppMenu
-        visible={menuNote !== null}
-        onClose={() => setMenuNote(null)}
+      <PopMenu
+        anchor={menuTarget?.anchor ?? null}
         actions={menuActions}
-        title={menuNote ? '便签操作' : undefined}
+        onClose={() => setMenuTarget(null)}
       />
     </SafeAreaView>
   );
