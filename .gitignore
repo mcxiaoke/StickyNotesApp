@@ -107,7 +107,8 @@ dist
 .tern-port
 
 #custom
-data/
+# 注意：必须锚定到仓库根，否则会连带忽略源码目录 src/src/data（曾导致整个数据层从未入库）
+/data/
 Downloads/
 release/
 test-results/

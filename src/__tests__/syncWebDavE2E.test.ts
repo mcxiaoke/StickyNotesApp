@@ -109,10 +109,6 @@ class InMemoryRepo implements INoteRepository {
     return [...this.notes.values()];
   }
 
-  async getUpdatedAtAsync(id: string): Promise<string | null> {
-    return this.notes.get(id)?.updatedAt ?? null;
-  }
-
   async applyRemoteBatchAsync(items: RemoteApplyItem[]): Promise<{ applied: number; guardedSkipped: number }> {
     let applied = 0;
     let guarded = 0;
