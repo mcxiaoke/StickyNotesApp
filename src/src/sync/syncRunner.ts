@@ -34,6 +34,26 @@ export function setSyncStateListener(fn: SyncStateListener | null): void {
   listener = fn;
 }
 
+let afterSyncHook: (() => void | Promise<void>) | null = null;
+
+/**
+ * 注册「一轮同步结束后的收口回调」（刷新内存列表等）。
+ * 与 setSyncStateListener 同一模式：由上层注入，避免 syncRunner 反向依赖 store 形成循环导入。
+ * 收口放在这里后，各处入口不再需要各自记得 refreshAsync。
+ */
+export function setAfterSync(fn: (() => void | Promise<void>) | null): void {
+  afterSyncHook = fn;
+}
+
+async function runAfterSyncHook(): Promise<void> {
+  if (!afterSyncHook) return;
+  try {
+    await afterSyncHook();
+  } catch (ex) {
+    logger.warn('sync', `afterSync hook failed: ${ex instanceof Error ? ex.message : String(ex)}`);
+  }
+}
+
 /**
  * 模块级单飞：SyncEngine 的互斥是实例字段，而每轮都会 new 一个实例，因此它挡不住并发。
  * 真正的互斥放在这里——并发调用不再各自起一轮，而是合并到正在跑的那一轮（返回同一个 Promise），
@@ -94,6 +114,9 @@ async function runRoundAsync(trigger: string): Promise<SyncRoundSummary | null> 
   } finally {
     listener?.({ type: 'end' });
     backend.dispose();
+    // 下行写入（以及上行失败前已应用的下行）必须刷新到内存列表才会出现在界面上，
+    // 因此在成功与失败两条路径上都执行收口；仅「提前返回、什么都没跑」时不执行。
+    await runAfterSyncHook();
   }
 }
 

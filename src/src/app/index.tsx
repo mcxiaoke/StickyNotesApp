@@ -26,6 +26,9 @@ import { useShellPalette } from '../hooks/use-shell';
 
 type FilterMode = 'all' | 'pinned';
 
+/** 下拉刷新的转圈上限：只决定转圈何时收起，不中断同步（原先的 1200ms 会在慢网下过早收起） */
+const MANUAL_REFRESH_SPINNER_MAX_MS = 15_000;
+
 export default function NotesListScreen() {
   const router = useRouter();
   const p = useShellPalette();
@@ -58,10 +61,17 @@ export default function NotesListScreen() {
 
   const manualRefresh = useCallback(async () => {
     setRefreshing(true);
-    const started = syncStore.getState().runNow();
-    await Promise.race([started, new Promise((r) => setTimeout(r, 1200))]);
-    await refreshAsync();
-    setRefreshing(false);
+    // 不 await：先让本轮同步尽早开始，与下面的本地刷新并行
+    const round = syncStore.getState().runNow();
+    try {
+      // 第一段：读本地库立即呈现已有数据（毫秒级），不让转圈被网络等待拖住
+      await refreshAsync();
+      // 第二段：等本轮结束。这里的上限只决定转圈何时收起，不中断同步；
+      // 同步完成后的列表刷新由 setAfterSync 收口保证，超时也不会丢数据。
+      await Promise.race([round, new Promise((r) => setTimeout(r, MANUAL_REFRESH_SPINNER_MAX_MS))]);
+    } finally {
+      setRefreshing(false);
+    }
   }, [refreshAsync]);
 
   const menuActions: MenuAction[] = useMemo(() => {

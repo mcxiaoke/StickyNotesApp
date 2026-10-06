@@ -33,7 +33,6 @@ import {
   type SyncSettings,
 } from '../../sync/settings';
 import { syncStore } from '../../stores/syncStore';
-import { notesStore } from '../../stores/notesStore';
 import { formatDateTime, relativeTime } from '../../services/time';
 
 const INTERVAL_OPTIONS = [5, 10, 15, 30, 60];
@@ -113,7 +112,6 @@ export default function SyncSettingsScreen() {
     // 对齐桌面端行为：保存后立即触发一轮同步，配置改动无需等待后台周期
     setBusyHint('设置已保存，正在触发同步…');
     const started = await syncStore.getState().runNow();
-    await notesStore.getState().refreshAsync();
     setBusyHint(
       started
         ? '设置已保存，并已触发一轮同步（结果见上方状态）。'
@@ -159,8 +157,9 @@ export default function SyncSettingsScreen() {
     setBusyHint('正在同步…');
     try {
       const started = await syncStore.getState().runNow();
-      await notesStore.getState().refreshAsync();
-      setBusyHint(started ? '本轮同步已结束，详情见上方状态。' : '同步未启动（未启用或上一轮仍在进行）。');
+      setBusyHint(
+        started ? '本轮同步已结束，详情见上方状态。' : '同步未启动（未启用、配置不完整或已有轮次在进行）。',
+      );
     } finally {
       setSyncing(false);
     }

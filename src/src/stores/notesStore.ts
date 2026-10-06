@@ -18,6 +18,8 @@ interface NotesState {
   restoreAsync: (id: string) => Promise<void>;
   purgeAsync: (id: string) => Promise<void>;
   purgeAllDeletedAsync: () => Promise<void>;
+  /** 外部批量写入（JSON 导入等）收口：刷新内存列表并立刻发起一轮上行同步 */
+  importAppliedAsync: () => Promise<void>;
 }
 
 let syncDebounceTimer: ReturnType<typeof setTimeout> | null = null;
@@ -92,6 +94,15 @@ export const notesStore = create<NotesState>((set, get) => ({
   purgeAllDeletedAsync: async () => {
     await noteRepository.purgeAllDeletedAsync();
     set({ notes: get().notes.filter((n) => !n.isDeleted) });
+  },
+
+  importAppliedAsync: async () => {
+    // 导入直接写 SQLite，不经过任何写操作入口，必须显式刷新 + 触发同步，
+    // 否则导入的便签既不出现在列表里，也要等到某条便签下次被编辑时才会碰巧上行。
+    await get().refreshAsync();
+    void performSyncRound('import').catch((ex) =>
+      logger.warn('sync', `post-import round failed: ${ex instanceof Error ? ex.message : String(ex)}`),
+    );
   },
 }));
 

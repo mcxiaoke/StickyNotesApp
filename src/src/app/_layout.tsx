@@ -11,7 +11,7 @@ import { lockStore } from '../stores/lockStore';
 import { notesStore } from '../stores/notesStore';
 import { syncStore } from '../stores/syncStore';
 import { crashStore } from '../stores/crashStore';
-import { performSyncRound } from '../sync/syncRunner';
+import { performSyncRound, setAfterSync } from '../sync/syncRunner';
 import { applyBackgroundSyncSchedule } from '../sync/scheduler';
 import { runDailyBackupIfDueAsync } from '../services/dbBackup';
 import { installGlobalErrorHandlers } from '../services/crash';
@@ -22,6 +22,10 @@ import { LockScreen } from '../components/LockScreen';
 
 // 全局错误钩子必须在首次渲染前安装
 installGlobalErrorHandlers();
+
+// 同步刷新收口：任何入口（防抖/前台/后台/手动）跑完一轮后都从这里统一刷新内存列表，
+// 否则下行写入的数据要等到下次手动刷新才可见。用回调注入而非直接依赖，避免循环导入。
+setAfterSync(() => notesStore.getState().refreshAsync());
 
 export default function RootLayout() {
   const systemScheme = useColorScheme();
@@ -47,9 +51,9 @@ export default function RootLayout() {
     let fgTimer: ReturnType<typeof setTimeout> | null = null;
     const onForeground = () => {
       fgTimer = setTimeout(() => {
-        performSyncRound('foreground')
-          .catch((ex) => logger.warn('sync', `foreground round failed: ${ex instanceof Error ? ex.message : String(ex)}`))
-          .finally(() => void notesStore.getState().refreshAsync());
+        performSyncRound('foreground').catch((ex) =>
+          logger.warn('sync', `foreground round failed: ${ex instanceof Error ? ex.message : String(ex)}`),
+        );
       }, 2000);
     };
     const sub = AppState.addEventListener('change', (state) => {

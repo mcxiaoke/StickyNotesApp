@@ -4,7 +4,7 @@ import type { SyncRoundSummary } from '../src/sync/engine';
 import type { IStorageBackend } from '../src/sync/backends/types';
 import { createBackendAsync } from '../src/sync/backendFactory';
 import { loadSyncSettings, type SyncSettings } from '../src/sync/settings';
-import { performSyncRound, setSyncStateListener } from '../src/sync/syncRunner';
+import { performSyncRound, setAfterSync, setSyncStateListener } from '../src/sync/syncRunner';
 
 const mockRunAsync = jest.fn();
 
@@ -63,6 +63,7 @@ function enabledSettings(): SyncSettings {
 beforeEach(() => {
   jest.clearAllMocks();
   setSyncStateListener(null);
+  setAfterSync(null);
 });
 
 describe('performSyncRound 模块级单飞', () => {
@@ -122,9 +123,34 @@ describe('performSyncRound 模块级单飞', () => {
     createBackendMock.mockResolvedValue(null);
     const events: string[] = [];
     setSyncStateListener((event) => events.push(event.type));
+    const hook = jest.fn();
+    setAfterSync(hook);
 
     await expect(performSyncRound('manual')).resolves.toBeNull();
     expect(mockRunAsync).not.toHaveBeenCalled();
     expect(events).toEqual([]);
+    // 什么都没跑：不做收口刷新
+    expect(hook).not.toHaveBeenCalled();
+  });
+});
+
+describe('setAfterSync 收口回调', () => {
+  test('成功与失败路径都执行收口，且失败时回调本身抛错不影响本轮结果', async () => {
+    settingsMock.mockReturnValue(enabledSettings());
+    createBackendMock.mockResolvedValue(new FakeBackend());
+    let calls = 0;
+    setAfterSync(() => {
+      calls++;
+      if (calls === 2) throw new Error('refresh exploded');
+    });
+
+    mockRunAsync.mockResolvedValue(SUMMARY);
+    await expect(performSyncRound('manual')).resolves.toBe(SUMMARY);
+    expect(calls).toBe(1);
+
+    // 上行失败：已应用的下行仍需刷新到界面，故失败路径同样收口
+    mockRunAsync.mockRejectedValue(new Error('upload failed'));
+    await expect(performSyncRound('manual')).rejects.toThrow('upload failed');
+    expect(calls).toBe(2);
   });
 });

@@ -18,6 +18,7 @@ import { exportNotesAsync, importNotesAsync } from '../../services/backup';
 import { getLastBackupDate } from '../../services/dbBackup';
 import { verifyPinAsync } from '../../services/pin';
 import { lockStore } from '../../stores/lockStore';
+import { notesStore } from '../../stores/notesStore';
 import { syncStore } from '../../stores/syncStore';
 import { formatDateTime } from '../../services/time';
 import { PinSetupModal, type PinModalMode } from '../../components/PinSetupModal';
@@ -101,6 +102,10 @@ export default function SettingsScreen() {
       const lines = [`共 ${summary.total} 条，导入 ${summary.imported} 条`];
       if (summary.skipped > 0) lines.push(`跳过重复 ${summary.skipped} 条`);
       if (summary.invalid > 0) lines.push(`无效 ${summary.invalid} 条`);
+      if (summary.imported > 0) {
+        // 刷新列表并触发上行同步（导入绕过写操作入口，不走防抖）
+        await notesStore.getState().importAppliedAsync();
+      }
       Alert.alert('导入完成', lines.join('，'));
     } catch (ex) {
       Alert.alert('导入失败', ex instanceof Error ? ex.message : String(ex));
