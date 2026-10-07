@@ -16,6 +16,7 @@ import { applyBackgroundSyncSchedule } from '../sync/scheduler';
 import { runDailyBackupIfDueAsync } from '../services/dbBackup';
 import { installGlobalErrorHandlers } from '../services/crash';
 import { logger } from '../services/logger';
+import { seedNotesAsync } from '../dev/seedNotes';
 import { AppErrorBoundary } from '../components/AppErrorBoundary';
 import { CrashScreen } from '../components/CrashScreen';
 import { LockScreen } from '../components/LockScreen';
@@ -39,6 +40,14 @@ export default function RootLayout() {
       settingsStore.getState().hydrate();
       syncStore.getState().hydrate();
       await lockStore.getState().hydrate();
+      // debug 专用：EXPO_PUBLIC_SEED=1 启动时自动注入测试便签（固定 id 幂等，见 src/dev/seedNotes.ts）
+      if (__DEV__ && process.env.EXPO_PUBLIC_SEED === '1') {
+        try {
+          await seedNotesAsync();
+        } catch (ex) {
+          logger.warn('dev-seed', `auto seed failed: ${ex instanceof Error ? ex.message : String(ex)}`);
+        }
+      }
       await notesStore.getState().refreshAsync();
       await applyBackgroundSyncSchedule();
       // 每日一次的本地冷备份（同步之外的最后防线），失败不影响主流程
@@ -119,6 +128,7 @@ export default function RootLayout() {
           >
             <Stack.Screen name="index" options={{ headerShown: false }} />
             <Stack.Screen name="note/[id]" options={{ headerShown: false }} />
+            {__DEV__ && <Stack.Screen name="dev-seed" options={{ headerShown: false }} />}
             <Stack.Screen
               name="archive"
               options={{ title: '已归档便签', headerBackTitle: '返回' }}
