@@ -33,9 +33,12 @@ Run lint and typecheck before declaring any task done.
 
 Inject test notes into the local SQLite database via `src/dev/seedNotes.ts` (fixed UUIDs + `INSERT OR IGNORE`, so re-running is idempotent and never duplicates). Two triggers share the same seed data:
 
+The debug build installs alongside release builds: `applicationIdSuffix '.debug'` (`com.mcxiaoke.stickynotes.debug`) and launcher name "StickyNotes Dev", injected by `plugins/withDebugAppIdentity.js` at prebuild.
+
 ```bash
 # Option A: deep link — inject 8 notes on demand, app must be running (or it cold-starts first)
-adb shell am start -a android.intent.action.VIEW -d "stickynotes://dev-seed?count=8&clear=1"
+# -p targets the debug build (applicationIdSuffix .debug); drop it to let the OS resolve the scheme
+adb shell am start -a android.intent.action.VIEW -d "stickynotes://dev-seed?count=8&clear=1" -p com.mcxiaoke.stickynotes.debug
 
 # Option B: auto-seed on startup — set env var before starting Metro / building
 EXPO_PUBLIC_SEED=1 npx expo start

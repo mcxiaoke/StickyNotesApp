@@ -30,6 +30,7 @@
       "expo-background-task",
       "expo-updates",
       "./plugins/withAndroidSigning.js",
+      "./plugins/withDebugAppIdentity.js",
       [
         "expo-splash-screen",
         {
