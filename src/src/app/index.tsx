@@ -5,7 +5,6 @@ import {
   RefreshControl,
   StyleSheet,
   Text,
-  TextInput,
   View,
 } from 'react-native';
 import { useRouter } from 'expo-router';
@@ -17,11 +16,14 @@ import { NoteCard } from '../components/NoteCard';
 import { PopMenu } from '../components/PopMenu';
 import type { MenuAction } from '../components/AppMenu';
 import type { PopMenuAnchor } from '../components/PopMenu';
+import { SearchBar } from '../components/SearchBar';
+import { SearchHitCard } from '../components/SearchHitCard';
 import { SyncDot } from '../components/SyncDot';
 import { cardShadow, type ShellPalette } from '../constants/theme';
 import { SPACING, RADII, FONT, LINE_HEIGHT, TOUCH_TARGET, APPBAR_HEIGHT, FAB_SIZE } from '../constants/metrics';
 import type { Note } from '../data/note';
-import { filterNotes } from '../services/search';
+import { searchNotes } from '../services/search';
+import { useSearchInput } from '../hooks/use-search-input';
 import { notesStore } from '../stores/notesStore';
 import { syncStore } from '../stores/syncStore';
 import { useShellPalette } from '../hooks/use-shell';
@@ -44,20 +46,32 @@ export default function NotesListScreen() {
   const syncStatus = syncStore((s) => s.status);
   const syncInFlight = syncStore((s) => s.inFlight);
 
-  const [query, setQuery] = useState('');
+  const { query, searchQuery, updateQuery } = useSearchInput();
+  const isSearching = searchQuery.trim() !== '';
   const [filter, setFilter] = useState<FilterMode>('all');
   const [menuTarget, setMenuTarget] = useState<{ note: Note; anchor: PopMenuAnchor } | null>(null);
   const [refreshing, setRefreshing] = useState(false);
 
+  // 非搜索态列表：未删除 + 分类过滤 + 置顶优先/时间降序（搜索态的排序由 searchNotes 决定）
   const visibleNotes = useMemo(() => {
     const active = notes.filter((n) => !n.isDeleted);
     const filtered = filter === 'pinned' ? active.filter((n) => n.isPinnedInList) : active;
-    const sorted = [...filtered].sort((a, b) => {
+    return [...filtered].sort((a, b) => {
       if (a.isPinnedInList !== b.isPinnedInList) return a.isPinnedInList ? -1 : 1;
       return a.updatedAt >= b.updatedAt ? -1 : 1;
     });
-    return filterNotes(sorted, query);
-  }, [notes, filter, query]);
+  }, [notes, filter]);
+
+  // 搜索态：卡片化结果（内部只搜未删除便签，排序为质量优先 → 时间降序，不考虑置顶）
+  const searchResults = useMemo(
+    () => (isSearching ? searchNotes(notes, searchQuery) : []),
+    [notes, searchQuery, isSearching],
+  );
+  const matchedNoteCount = useMemo(() => {
+    const ids = new Set<string>();
+    for (const hit of searchResults) ids.add(hit.note.id);
+    return ids.size;
+  }, [searchResults]);
 
   const allCount = useMemo(() => notes.filter((n) => !n.isDeleted).length, [notes]);
   const pinnedCount = useMemo(() => notes.filter((n) => !n.isDeleted && n.isPinnedInList).length, [notes]);
@@ -79,6 +93,10 @@ export default function NotesListScreen() {
 
   // 稳定引用：NoteCard 有 memo，回调每次渲染重建会让 memo 失效，列表卡顿
   const openNote = useCallback((note: Note) => router.push(`/note/${note.id}`), [router]);
+  const openHit = useCallback(
+    (card: (typeof searchResults)[number]) => router.push(`/note/${card.note.id}`),
+    [router],
+  );
   const openCardMenu = useCallback((note: Note, anchor: PopMenuAnchor) => setMenuTarget({ note, anchor }), []);
 
   const menuActions: MenuAction[] = useMemo(() => {
@@ -130,47 +148,61 @@ export default function NotesListScreen() {
 
       {/* 快捷搜索框 */}
       <View style={styles.searchWrap}>
-        <TextInput
-          style={styles.searchInput}
-          placeholder="搜索便签内容..."
-          placeholderTextColor={p.secondaryText}
-          value={query}
-          onChangeText={setQuery}
-          returnKeyType="search"
-        />
+        <SearchBar value={query} placeholder="搜索便签内容..." onChangeText={updateQuery} />
       </View>
 
-      {/* 分类过滤 Chips */}
-      <View style={styles.chipsRow}>
-        <Chip label={`全部 (${allCount})`} active={filter === 'all'} onPress={() => setFilter('all')} p={p} />
-        <Chip label={`已置顶 (${pinnedCount})`} active={filter === 'pinned'} onPress={() => setFilter('pinned')} p={p} />
-      </View>
-
-      {/* 便签卡片流 */}
-      <FlashList
-        data={visibleNotes}
-        masonry
-        numColumns={2}
-        contentContainerStyle={styles.listContent}
-        keyExtractor={(item) => item.id}
-        renderItem={({ item }) => (
-          <NoteCard
-            note={item}
-            query={query}
-            onPress={openNote}
-            onMenu={openCardMenu}
-          />
-        )}
-        ListEmptyComponent={
-          <View style={styles.empty}>
-            <Text style={styles.emptyIcon}>🗒️</Text>
-            <Text style={styles.emptyText}>{query ? '没有匹配的便签' : '还没有便签，点击右下角 + 新建'}</Text>
+      {/* 搜索态显示结果计数；非搜索态显示分类过滤 Chips */}
+      {isSearching ? (
+        searchResults.length > 0 ? (
+          <View style={styles.chipsRow}>
+            <Text style={[styles.statusText, { color: p.secondaryText }]}>
+              {`找到 ${searchResults.length} 条结果（来自 ${matchedNoteCount} 张便签）`}
+            </Text>
           </View>
-        }
-        refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={() => void manualRefresh()} tintColor={p.secondaryText} />
-        }
-      />
+        ) : null
+      ) : (
+        <View style={styles.chipsRow}>
+          <Chip label={`全部 (${allCount})`} active={filter === 'all'} onPress={() => setFilter('all')} p={p} />
+          <Chip label={`已置顶 (${pinnedCount})`} active={filter === 'pinned'} onPress={() => setFilter('pinned')} p={p} />
+        </View>
+      )}
+
+      {/* 搜索结果列表：卡片化命中项（单列） */}
+      {isSearching ? (
+        <FlashList
+          data={searchResults}
+          keyExtractor={(item, index) => `${item.note.id}-${item.lineNumber}-${index}`}
+          contentContainerStyle={styles.listContent}
+          renderItem={({ item }) => <SearchHitCard card={item} onPress={openHit} />}
+          ListEmptyComponent={
+            <View style={styles.empty}>
+              <Text style={styles.emptyIcon}>🔍</Text>
+              <Text style={styles.emptyText}>没有匹配的便签</Text>
+            </View>
+          }
+        />
+      ) : (
+        /* 便签卡片流 */
+        <FlashList
+          data={visibleNotes}
+          masonry
+          numColumns={2}
+          contentContainerStyle={styles.listContent}
+          keyExtractor={(item) => item.id}
+          renderItem={({ item }) => (
+            <NoteCard note={item} query="" onPress={openNote} onMenu={openCardMenu} />
+          )}
+          ListEmptyComponent={
+            <View style={styles.empty}>
+              <Text style={styles.emptyIcon}>🗒️</Text>
+              <Text style={styles.emptyText}>还没有便签，点击右下角 + 新建</Text>
+            </View>
+          }
+          refreshControl={
+            <RefreshControl refreshing={refreshing} onRefresh={() => void manualRefresh()} tintColor={p.secondaryText} />
+          }
+        />
+      )}
 
       {/* 浮动操作按钮 */}
       <Pressable
@@ -283,15 +315,9 @@ const makeStyles = (p: ShellPalette) =>
       paddingHorizontal: SPACING.lg,
       paddingBottom: SPACING.sm,
     },
-    searchInput: {
-      backgroundColor: p.surface,
-      borderColor: p.border,
-      borderWidth: StyleSheet.hairlineWidth,
-      borderRadius: RADII.md,
-      paddingHorizontal: SPACING.lg - 2,
-      paddingVertical: SPACING.sm,
-      color: p.text,
-      fontSize: FONT.bodyLg,
+    statusText: {
+      fontSize: FONT.label,
+      lineHeight: LINE_HEIGHT.label,
     },
     chipsRow: {
       flexDirection: 'row',

@@ -1,16 +1,19 @@
-// 已归档便签管理页：查看 / 恢复 / 彻底删除 / 清空回收站
+// 已归档便签管理页：查看 / 搜索 / 恢复 / 彻底删除 / 清空回收站
 import { useMemo, useState } from 'react';
 import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
 import { FlashList } from '@shopify/flash-list';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AppMenu, type MenuAction } from '../components/AppMenu';
+import { SearchBar } from '../components/SearchBar';
 import type { ShellPalette } from '../constants/theme';
 import { useShellPalette, useScheme } from '../hooks/use-shell';
+import { useSearchInput } from '../hooks/use-search-input';
 import { SPACING, RADII, FONT, LINE_HEIGHT, TOUCH_TARGET } from '../constants/metrics';
 import type { Note } from '../data/note';
 import { getNoteColorTheme, displayTitle, previewText } from '../data/theme';
 import { relativeTime } from '../services/time';
+import { isMatch } from '../services/search';
 import { notesStore } from '../stores/notesStore';
 
 export default function ArchiveScreen() {
@@ -24,6 +27,13 @@ export default function ArchiveScreen() {
   const purgeAllDeletedAsync = notesStore((s) => s.purgeAllDeletedAsync);
 
   const archived = useMemo(() => notes.filter((n) => n.isDeleted), [notes]);
+  const { query, searchQuery, updateQuery } = useSearchInput();
+  const isSearching = searchQuery.trim() !== '';
+  // 搜索规则与主列表/桌面端一致（isMatch：多词 AND + 紧凑连写 + 忽略大小写）
+  const visibleArchived = useMemo(
+    () => (isSearching ? archived.filter((n) => isMatch(n, searchQuery)) : archived),
+    [archived, searchQuery, isSearching],
+  );
   const [menuNote, setMenuNote] = useState<Note | null>(null);
 
   const menuActions: MenuAction[] = useMemo(() => {
@@ -48,7 +58,11 @@ export default function ArchiveScreen() {
   return (
     <SafeAreaView style={styles.safe} edges={['bottom']}>
       <View style={styles.headerRow}>
-        <Text style={styles.countText}>{archived.length} 条已归档</Text>
+        <Text style={styles.countText}>
+          {isSearching
+            ? `${visibleArchived.length} / ${archived.length} 条已归档`
+            : `${archived.length} 条已归档`}
+        </Text>
         {archived.length > 0 ? (
           <Pressable
             hitSlop={8}
@@ -68,8 +82,12 @@ export default function ArchiveScreen() {
         ) : null}
       </View>
 
+      <View style={styles.searchWrap}>
+        <SearchBar value={query} placeholder="搜索已归档便签..." onChangeText={updateQuery} />
+      </View>
+
       <FlashList
-        data={archived}
+        data={visibleArchived}
         keyExtractor={(item) => item.id}
         renderItem={({ item }) => {
           const theme = getNoteColorTheme(item.color, dark);
@@ -91,7 +109,7 @@ export default function ArchiveScreen() {
         ListEmptyComponent={
           <View style={styles.empty}>
             <Text style={styles.emptyIcon}>🗑️</Text>
-            <Text style={styles.emptyText}>回收站是空的</Text>
+            <Text style={styles.emptyText}>{isSearching ? '没有匹配的已归档便签' : '回收站是空的'}</Text>
           </View>
         }
       />
@@ -128,6 +146,10 @@ const makeStyles = (p: ShellPalette) =>
       color: p.danger,
       fontSize: FONT.body,
       lineHeight: LINE_HEIGHT.body,
+    },
+    searchWrap: {
+      paddingHorizontal: SPACING.lg,
+      paddingBottom: SPACING.sm,
     },
     row: {
       flexDirection: 'row',
