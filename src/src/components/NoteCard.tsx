@@ -80,6 +80,9 @@ const styles = StyleSheet.create({
     borderWidth: StyleSheet.hairlineWidth,
     paddingVertical: SPACING.md - 2,
     paddingHorizontal: SPACING.md,
+    // 列表不带 separator，卡片间距由自身 margin 提供（marginHorizontal 同时是双列瀑布流的列间距）
+    marginBottom: SPACING.sm,
+    marginHorizontal: SPACING.xs,
   },
   pressed: {
     opacity: 0.85,
