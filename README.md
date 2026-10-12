@@ -53,9 +53,10 @@ npm run android
 # 构建 release 并安装到设备（使用 release 签名）
 npm run android -- --variant release
 
-# 仅构建签名 release APK / AAB
-cd android && .\gradlew.bat assembleRelease
-npx react-native build-android --mode=release
+# 构建签名 release APK 并自动归档到 release/ 目录
+npm run release                    # 全架构通用包（~113 MB）
+npm run release -- --arch arm64-v8a # 指定单架构包（真机主流 64 位，仅 ~50 MB）
+# 亦可使用 npm run build:apk，或透传参数如 npm run release -- --clean
 
 # 单元测试（83 个：跨平台加密向量、子目录路由、S3 key 口径、加密上下行与探针拦截、SigV4 官方向量、LWW、防乒乓、下行守卫、熔断等）
 npm test
