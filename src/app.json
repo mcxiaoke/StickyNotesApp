@@ -36,7 +36,10 @@
         {
           "backgroundColor": "#FFEE9D",
           "image": "./assets/images/splash-icon.png",
-          "imageWidth": 76
+          "imageWidth": 76,
+          "dark": {
+            "backgroundColor": "#1a1c1e"
+          }
         }
       ],
       "expo-sharing",

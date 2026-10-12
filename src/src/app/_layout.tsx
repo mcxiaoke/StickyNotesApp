@@ -1,5 +1,5 @@
 // 根布局：全局初始化（数据库、store 水合、后台同步注册）与主题 Provider
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { AppState, useColorScheme } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { DarkTheme, DefaultTheme, Stack, ThemeProvider } from 'expo-router';
@@ -15,6 +15,7 @@ import { performSyncRound, setAfterSync } from '../sync/syncRunner';
 import { applyBackgroundSyncSchedule } from '../sync/scheduler';
 import { runDailyBackupIfDueAsync } from '../services/dbBackup';
 import { installGlobalErrorHandlers } from '../services/crash';
+import { initSplashScreen, hideSplashScreen } from '../services/splash';
 import { logger } from '../services/logger';
 import { seedNotesAsync } from '../dev/seedNotes';
 import { AppErrorBoundary } from '../components/AppErrorBoundary';
@@ -23,6 +24,10 @@ import { LockScreen } from '../components/LockScreen';
 
 // 全局错误钩子必须在首次渲染前安装
 installGlobalErrorHandlers();
+
+// 启动图同样要在首次渲染前接管：否则 expo-router 会在导航就绪时自行隐藏，
+// 那时首页可能还是空的（详见 services/splash.ts）
+initSplashScreen();
 
 // 同步刷新收口：任何入口（防抖/前台/后台/手动）跑完一轮后都从这里统一刷新内存列表，
 // 否则下行写入的数据要等到下次手动刷新才可见。用回调注入而非直接依赖，避免循环导入。
@@ -34,6 +39,8 @@ export default function RootLayout() {
   const fatalError = crashStore((s) => s.fatalError);
   const scheme = resolveScheme(themeMode, systemScheme === 'dark' ? 'dark' : systemScheme === 'light' ? 'light' : null);
   const shell = scheme === 'dark' ? DARK_SHELL : LIGHT_SHELL;
+  // 首次内容（锁存水合 + 首次便签加载）是否就绪：就绪后才撤走启动图
+  const [contentReady, setContentReady] = useState(false);
 
   useEffect(() => {
     void (async () => {
@@ -48,7 +55,14 @@ export default function RootLayout() {
           logger.warn('dev-seed', `auto seed failed: ${ex instanceof Error ? ex.message : String(ex)}`);
         }
       }
-      await notesStore.getState().refreshAsync();
+      // 首屏数据：失败也要放行启动图，否则异常时会一直停在启动图（services/splash.ts 另有兜底超时）
+      try {
+        await notesStore.getState().refreshAsync();
+      } catch (ex) {
+        logger.warn('notes', `initial load failed: ${ex instanceof Error ? ex.message : String(ex)}`);
+      } finally {
+        setContentReady(true);
+      }
       await applyBackgroundSyncSchedule();
       // 每日一次的本地冷备份（同步之外的最后防线），失败不影响主流程
       void runDailyBackupIfDueAsync().catch((ex) =>
@@ -78,6 +92,12 @@ export default function RootLayout() {
       sub.remove();
     };
   }, []);
+
+  // 启动图只在首屏内容真正提交后撤走（此时首页已带数据，不会露出空列表或空窗）；
+  // 崩溃屏也是一个可展示的首屏，同样放行，避免异常时永远停在启动图。
+  useEffect(() => {
+    if (contentReady || fatalError) hideSplashScreen();
+  }, [contentReady, fatalError]);
 
   // release 全局异常：崩溃屏接管整个应用（保持进程存活，可复制信息）
   if (fatalError) {
